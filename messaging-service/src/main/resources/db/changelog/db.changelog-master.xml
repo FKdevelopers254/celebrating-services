@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="1" author="celebrating">
+        <createTable tableName="chats">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user1_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="user2_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamp">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_message_at" type="timestamp">
+                <constraints nullable="false"/>
+            </column>
+            <column name="active" type="boolean" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="chats" indexName="idx_chats_user1_id">
+            <column name="user1_id"/>
+        </createIndex>
+        
+        <createIndex tableName="chats" indexName="idx_chats_user2_id">
+            <column name="user2_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="2" author="celebrating">
+        <createTable tableName="messages">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="chat_id" type="bigint">
+                <constraints nullable="false" foreignKeyName="fk_messages_chat_id" references="chats(id)"/>
+            </column>
+            <column name="sender_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="receiver_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="content" type="text">
+                <constraints nullable="false"/>
+            </column>
+            <column name="read" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamp">
+                <constraints nullable="false"/>
+            </column>
+            <column name="media_url" type="varchar(255)"/>
+        </createTable>
+        
+        <createIndex tableName="messages" indexName="idx_messages_chat_id">
+            <column name="chat_id"/>
+        </createIndex>
+        
+        <createIndex tableName="messages" indexName="idx_messages_sender_id">
+            <column name="sender_id"/>
+        </createIndex>
+        
+        <createIndex tableName="messages" indexName="idx_messages_receiver_id">
+            <column name="receiver_id"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog> 

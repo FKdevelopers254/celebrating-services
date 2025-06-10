@@ -1,0 +1,1 @@
+C:\Users\User\Documents\springprojects\celebrating-microservices-main\celebrate\build\app\intermediates\cxx\RelWithDebInfo\2f2y4424\obj\armeabi-v7a
