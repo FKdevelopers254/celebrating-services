@@ -15,7 +15,8 @@ void main() {
   runApp(
     ChangeNotifierProvider(
       create: (_) => AuthService(),
-      child: const MyApp(),
+      //  child: const MyApp(),
+      child: const SearchScreen(),
     ),
   );
 }
