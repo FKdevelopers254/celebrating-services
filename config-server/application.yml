@@ -6,11 +6,8 @@ spring:
   cloud:
     config:
       server:
-        git:
-          uri: file:///C:/Users/User/Documents/springprojects/celebrating-microservices-main/config-repo
-          clone-on-start: true
-          default-label: main
-          search-paths: '{application}'
+        native:
+          search-locations: file:///home/francis/celebrating-microservices/config-repo
   profiles:
     active: native
 logging:

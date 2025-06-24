@@ -1,16 +1,73 @@
 class ApiConstants {
-  static const String serverIP = '197.254.53.252';
-  static const int apiGatewayPort = 2323;
-  static const String baseUrl = 'http://$serverIP:$apiGatewayPort';
+  // API Base URLs
+  static const bool isProduction = false;
+  static const String host = isProduction ? 'api.celebrate.com' : 'localhost';
+  static const int gatewayPort = 8080;
+  static const String baseUrl = 'http://$host:$gatewayPort';
+  static const String wsBaseUrl = 'ws://$host:$gatewayPort';
 
-  // News Feed Types
+  // Storage Keys
+  static const String authTokenKey = 'auth_token';
+  static const String userRoleKey = 'user_role';
+  static const String userIdKey = 'user_id';
+  static const String refreshTokenKey = 'refresh_token';
+
+  // WebSocket Endpoints
+  static String notificationWsUrl(String userId) =>
+      '$wsBaseUrl/ws/notifications/$userId';
+  static String chatWsUrl(String userId) => '$wsBaseUrl/ws/chat/$userId';
+
+  // API Versions
+  static const String apiV1 = '/api/v1';
+  static const String apiPrefix = '/api';
+
+  // Service Ports
+  static const int authServicePort = 8081;
+  static const int userServicePort = 8082;
+  static const int postServicePort = 8083;
+  static const int searchServicePort = 8084;
+  static const int feedServicePort = 8085;
+  static const int messagingServicePort = 8086;
+  static const int notificationServicePort = 8087;
+  static const int reviewServicePort = 8088;
+  static const int moderationServicePort = 8089;
+  static const int awardsServicePort = 8090;
+
+  // Timeouts
+  static const int connectionTimeout = 30;
+  static const int receiveTimeout = 30;
+
+  // Error Messages
+  static const String networkError =
+      'Network error occurred. Please check your connection.';
+  static const String serverError =
+      'Server error occurred. Please try again later.';
+  static const String authError = 'Authentication error. Please login again.';
+  static const String unknownError = 'An unknown error occurred.';
+
+  // Success Messages
+  static const String loginSuccess = 'Login successful';
+  static const String registerSuccess = 'Registration successful';
+  static const String logoutSuccess = 'Logout successful';
+  static const String profileUpdateSuccess = 'Profile updated successfully';
+
+  // Validation Messages
+  static const String emailRequired = 'Email is required';
+  static const String passwordRequired = 'Password is required';
+  static const String invalidEmail = 'Invalid email format';
+  static const String passwordTooShort =
+      'Password must be at least 6 characters';
+  static const String passwordsDoNotMatch = 'Passwords do not match';
+
+  // Content Types
   static const String postType = 'post';
   static const String eventType = 'event';
   static const String celebrationType = 'celebration';
 
-  // Author Types
-  static const String regularAuthor = 'regular';
-  static const String celebrityAuthor = 'celebrity';
+  // User Types
+  static const String regularUser = 'USER';
+  static const String celebrityUser = 'CELEBRITY';
+  static const String adminUser = 'ADMIN';
 
   // WebSocket Events
   static const String newsFeedUpdated = 'NEWS_FEED_UPDATED';
@@ -20,14 +77,7 @@ class ApiConstants {
   static const String notificationReceived = 'NOTIFICATION_RECEIVED';
 
   // Cache Keys
-  static const String authTokenKey = 'auth_token';
-  static const String userRoleKey = 'user_role';
-  static const String userIdKey = 'user_id';
   static const String userProfileKey = 'user_profile';
-
-  // API Timeouts
-  static const int connectionTimeout = 30000; // 30 seconds
-  static const int receiveTimeout = 30000; // 30 seconds
 
   // Pagination
   static const int defaultPageSize = 20;

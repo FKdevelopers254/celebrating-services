@@ -1,300 +1,122 @@
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
-import '../providers/AuthProvider.dart';
-import 'home_screen.dart';
+import '../AuthService.dart';
+import '../login.dart';
 
-class RegistrationScreen extends StatefulWidget {
-  const RegistrationScreen({super.key});
+class RegisterPage extends StatefulWidget {
+  const RegisterPage({Key? key}) : super(key: key);
 
   @override
-  State<RegistrationScreen> createState() => _RegistrationScreenState();
+  State<RegisterPage> createState() => _RegisterPageState();
 }
 
-class _RegistrationScreenState extends State<RegistrationScreen> {
+class _RegisterPageState extends State<RegisterPage> {
   final _formKey = GlobalKey<FormState>();
+  final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  final _fullNameController = TextEditingController();
-  final _usernameController = TextEditingController();
   bool _isLoading = false;
-  bool _obscurePassword = true;
-  bool _obscureConfirmPassword = true;
   bool _isCelebrity = false;
+  final _authService = AuthService.instance;
 
   Future<void> _register() async {
     if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-      });
+      if (_passwordController.text != _confirmPasswordController.text) {
+        Fluttertoast.showToast(
+          msg: "Passwords don't match",
+          backgroundColor: Colors.red,
+          toastLength: Toast.LENGTH_LONG,
+        );
+        return;
+      }
+
+      setState(() => _isLoading = true);
+
       try {
-        await Provider.of<AuthProvider>(context, listen: false).register(
+        final result = await _authService.register(
           _usernameController.text,
           _emailController.text,
           _passwordController.text,
-          _isCelebrity ? 'celebrity' : 'user',
         );
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Registration successful! Please login.')),
-        );
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => HomeScreen()),
-        );
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Registration failed: $e')),
+
+        if (result['success']) {
+          if (!mounted) return;
+          Fluttertoast.showToast(
+            msg: "Registration successful! Please login.",
+            backgroundColor: Colors.green,
+            toastLength: Toast.LENGTH_LONG,
+          );
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const LoginPage()),
+          );
+        } else {
+          if (!mounted) return;
+          final errorMsg = result['message'] ?? "Registration failed.";
+          Fluttertoast.showToast(
+            msg: errorMsg,
+            backgroundColor: Colors.red,
+            toastLength: Toast.LENGTH_LONG,
           );
         }
+      } catch (e) {
+        if (!mounted) return;
+        Fluttertoast.showToast(
+          msg: "An error occurred. Please try again later.",
+          backgroundColor: Colors.red,
+          toastLength: Toast.LENGTH_LONG,
+        );
       } finally {
         if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
+          setState(() => _isLoading = false);
         }
       }
     }
   }
 
   @override
+  void dispose() {
+    _usernameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Register', style: GoogleFonts.lato()),
-        backgroundColor: Colors.orange,
-      ),
+      backgroundColor: Colors.amber[600],
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Create Account',
-                  style: GoogleFonts.lato(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  textAlign: TextAlign.center,
+        child: Center(
+          child: SingleChildScrollView(
+            child: Container(
+              width: double.infinity,
+              constraints: BoxConstraints(
+                maxWidth: 400,
+                minHeight: MediaQuery.of(context).size.height - 40,
+              ),
+              padding: const EdgeInsets.all(20.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildHeader(),
+                    const SizedBox(height: 50),
+                    _buildSignUpText(),
+                    const SizedBox(height: 30),
+                    _buildForm(),
+                    const SizedBox(height: 30),
+                    _buildRegisterButton(),
+                    const SizedBox(height: 20),
+                    _buildLoginLink(),
+                  ],
                 ),
-                const SizedBox(height: 24),
-                TextFormField(
-                  controller: _fullNameController,
-                  decoration: InputDecoration(
-                    labelText: 'Full Name',
-                    prefixIcon: const Icon(Icons.person),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your full name';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _usernameController,
-                  decoration: InputDecoration(
-                    labelText: 'Username',
-                    prefixIcon: const Icon(Icons.alternate_email),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a username';
-                    }
-                    if (value.length < 3) {
-                      return 'Username must be at least 3 characters';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _emailController,
-                  decoration: InputDecoration(
-                    labelText: 'Email',
-                    prefixIcon: const Icon(Icons.email),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  keyboardType: TextInputType.emailAddress,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your email';
-                    }
-                    if (!value.contains('@')) {
-                      return 'Please enter a valid email';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _passwordController,
-                  decoration: InputDecoration(
-                    labelText: 'Password',
-                    prefixIcon: const Icon(Icons.lock),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword
-                            ? Icons.visibility
-                            : Icons.visibility_off,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _obscurePassword = !_obscurePassword;
-                        });
-                      },
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  obscureText: _obscurePassword,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a password';
-                    }
-                    if (value.length < 6) {
-                      return 'Password must be at least 6 characters';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _confirmPasswordController,
-                  decoration: InputDecoration(
-                    labelText: 'Confirm Password',
-                    prefixIcon: const Icon(Icons.lock_outline),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscureConfirmPassword
-                            ? Icons.visibility
-                            : Icons.visibility_off,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _obscureConfirmPassword = !_obscureConfirmPassword;
-                        });
-                      },
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  obscureText: _obscureConfirmPassword,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please confirm your password';
-                    }
-                    if (value != _passwordController.text) {
-                      return 'Passwords do not match';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 24),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey.shade300),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Account Type',
-                        style: GoogleFonts.lato(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: RadioListTile<bool>(
-                              title: const Text('Regular User'),
-                              value: false,
-                              groupValue: _isCelebrity,
-                              onChanged: (value) {
-                                setState(() {
-                                  _isCelebrity = value!;
-                                });
-                              },
-                            ),
-                          ),
-                          Expanded(
-                            child: RadioListTile<bool>(
-                              title: const Text('Celebrity'),
-                              value: true,
-                              groupValue: _isCelebrity,
-                              onChanged: (value) {
-                                setState(() {
-                                  _isCelebrity = value!;
-                                });
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: _isLoading ? null : _register,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      : Text(
-                          'Register',
-                          style: GoogleFonts.lato(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                ),
-                const SizedBox(height: 16),
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                  },
-                  child: Text(
-                    'Already have an account? Login',
-                    style: GoogleFonts.lato(color: Colors.orange),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -302,13 +124,237 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     );
   }
 
-  @override
-  void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    _confirmPasswordController.dispose();
-    _fullNameController.dispose();
-    _usernameController.dispose();
-    super.dispose();
+  Widget _buildHeader() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const CircleAvatar(
+          radius: 25,
+          backgroundImage: AssetImage('lib/images/img.png'),
+        ),
+        const SizedBox(width: 10),
+        Text(
+          'CELEBRATING',
+          style: GoogleFonts.lato(
+            fontSize: 25,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSignUpText() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Sign up',
+          style: GoogleFonts.andika(
+            fontSize: 50,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        Row(
+          children: [
+            Text(
+              'Already have an account? ',
+              style: GoogleFonts.andika(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            GestureDetector(
+              onTap: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const LoginPage(),
+                  ),
+                );
+              },
+              child: Text(
+                'Sign In',
+                style: GoogleFonts.andika(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey.shade800,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildForm() {
+    const inputBorder = OutlineInputBorder(
+      borderSide: BorderSide(color: Colors.white),
+    );
+
+    const errorBorder = OutlineInputBorder(
+      borderSide: BorderSide(color: Colors.red),
+    );
+
+    const textStyle = TextStyle(color: Colors.white);
+    const labelStyle = TextStyle(color: Colors.white);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextFormField(
+          controller: _usernameController,
+          decoration: const InputDecoration(
+            labelText: 'Username',
+            labelStyle: labelStyle,
+            enabledBorder: inputBorder,
+            focusedBorder: inputBorder,
+            errorBorder: errorBorder,
+            focusedErrorBorder: errorBorder,
+          ),
+          style: textStyle,
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Please enter a username';
+            }
+            if (value.length < 3) {
+              return 'Username must be at least 3 characters';
+            }
+            return null;
+          },
+        ),
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: _emailController,
+          decoration: const InputDecoration(
+            labelText: 'Email',
+            labelStyle: labelStyle,
+            enabledBorder: inputBorder,
+            focusedBorder: inputBorder,
+            errorBorder: errorBorder,
+            focusedErrorBorder: errorBorder,
+          ),
+          style: textStyle,
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Please enter an email';
+            }
+            if (!value.contains('@') || !value.contains('.')) {
+              return 'Please enter a valid email';
+            }
+            return null;
+          },
+        ),
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: _passwordController,
+          obscureText: true,
+          decoration: const InputDecoration(
+            labelText: 'Password',
+            labelStyle: labelStyle,
+            enabledBorder: inputBorder,
+            focusedBorder: inputBorder,
+            errorBorder: errorBorder,
+            focusedErrorBorder: errorBorder,
+          ),
+          style: textStyle,
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Please enter a password';
+            }
+            if (value.length < 6) {
+              return 'Password must be at least 6 characters';
+            }
+            return null;
+          },
+        ),
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: _confirmPasswordController,
+          obscureText: true,
+          decoration: const InputDecoration(
+            labelText: 'Confirm Password',
+            labelStyle: labelStyle,
+            enabledBorder: inputBorder,
+            focusedBorder: inputBorder,
+            errorBorder: errorBorder,
+            focusedErrorBorder: errorBorder,
+          ),
+          style: textStyle,
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Please confirm your password';
+            }
+            if (value != _passwordController.text) {
+              return 'Passwords do not match';
+            }
+            return null;
+          },
+        ),
+        const SizedBox(height: 16),
+        SwitchListTile(
+          title: Text(
+            'Register as Celebrity',
+            style: GoogleFonts.andika(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          value: _isCelebrity,
+          onChanged: (bool value) {
+            setState(() {
+              _isCelebrity = value;
+            });
+          },
+          activeColor: Colors.white,
+          inactiveTrackColor: Colors.white.withOpacity(0.5),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRegisterButton() {
+    return ElevatedButton(
+      onPressed: _isLoading ? null : _register,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(vertical: 15),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+      child: _isLoading
+          ? const CircularProgressIndicator()
+          : Text(
+              'Register',
+              style: GoogleFonts.andika(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.amber[600],
+              ),
+            ),
+    );
+  }
+
+  Widget _buildLoginLink() {
+    return TextButton(
+      onPressed: () {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const LoginPage()),
+        );
+      },
+      child: Text(
+        'Already have an account? Sign In',
+        style: GoogleFonts.andika(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
   }
 }

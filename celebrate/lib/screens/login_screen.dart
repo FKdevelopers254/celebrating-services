@@ -1,65 +1,82 @@
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
-import '../providers/AuthProvider.dart';
-import 'home_screen.dart';
-import 'registration_screen.dart';
-import '../services/auth_service.dart';
+import '../AuthService.dart';
+import '../homefeed.dart';
+import '../celebrity_home.dart';
+import '../register.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
+class LoginPage extends StatefulWidget {
+  const LoginPage({Key? key}) : super(key: key);
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
+  final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
-  String _selectedRole = 'user'; // Default role
   bool _isLoading = false;
-  String? _errorMessage;
+  final _authService = AuthService.instance;
 
   @override
-  void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    _checkAuthentication();
+  }
+
+  Future<void> _checkAuthentication() async {
+    final isAuthenticated = await _authService.isAuthenticated();
+    if (isAuthenticated && mounted) {
+      _navigateToHome();
+    }
+  }
+
+  void _navigateToHome() {
+    final isCelebrity = _authService.role == 'CELEBRITY';
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            isCelebrity ? const CelebrityFeed() : const HomeFeed(),
+      ),
+    );
   }
 
   Future<void> _login() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (_formKey.currentState!.validate()) {
+      setState(() => _isLoading = true);
 
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+      try {
+        final result = await _authService.login(
+          _usernameController.text,
+          _passwordController.text,
+        );
 
-    try {
-      final authService = Provider.of<AuthService>(context, listen: false);
-      final response = await authService.login(
-        _emailController.text,
-        _passwordController.text,
-        _selectedRole,
-      );
-
-      if (response['success'] == true && mounted) {
-        Navigator.of(context).pushReplacementNamed('/home');
-      } else {
-        setState(() {
-          _errorMessage = response['message'] ?? 'Invalid credentials';
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _errorMessage = e.toString();
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        if (result['success']) {
+          if (!mounted) return;
+          _navigateToHome();
+        } else {
+          if (!mounted) return;
+          final errorMsg = result['message'] ?? "Login failed.";
+          Fluttertoast.showToast(
+            msg: errorMsg,
+            backgroundColor: Colors.red,
+            toastLength: Toast.LENGTH_LONG,
+          );
+        }
+      } catch (e) {
+        if (!mounted) return;
+        Fluttertoast.showToast(
+          msg: "An error occurred. Please try again later.",
+          backgroundColor: Colors.red,
+          toastLength: Toast.LENGTH_LONG,
+        );
+      } finally {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
       }
     }
   }
@@ -67,128 +84,185 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.amber[600],
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text(
-                    'Welcome to Celebrate',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 32),
-                  TextFormField(
-                    controller: _emailController,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.email),
-                    ),
-                    keyboardType: TextInputType.emailAddress,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter your email';
-                      }
-                      if (!value.contains('@')) {
-                        return 'Please enter a valid email';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _passwordController,
-                    decoration: const InputDecoration(
-                      labelText: 'Password',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.lock),
-                    ),
-                    obscureText: true,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter your password';
-                      }
-                      if (value.length < 6) {
-                        return 'Password must be at least 6 characters';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    value: _selectedRole,
-                    decoration: const InputDecoration(
-                      labelText: 'Account Type',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.person),
-                    ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'user',
-                        child: Text('Regular User'),
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.amber[600],
                       ),
-                      DropdownMenuItem(
-                        value: 'celebrity',
-                        child: Text('Celebrity'),
-                      ),
-                    ],
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedRole = value!;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 24),
-                  if (_errorMessage != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: Text(
-                        _errorMessage!,
-                        style: const TextStyle(
-                          color: Colors.red,
-                          fontSize: 14,
+                      child: Padding(
+                        padding: const EdgeInsets.all(10.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _buildHeader(),
+                            _buildSignInText(),
+                            _buildForm(),
+                            _buildSignInButton(),
+                            _buildSocialButtons(),
+                          ],
                         ),
-                        textAlign: TextAlign.center,
                       ),
-                    ),
-                  ElevatedButton(
-                    onPressed: _isLoading ? null : _login,
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : const Text('Login'),
-                  ),
-                  const SizedBox(height: 16),
-                  TextButton(
-                    onPressed: () {
-                      // TODO: Navigate to registration screen
-                      Navigator.of(context).pushNamed('/register');
-                    },
-                    child: const Text('Don\'t have an account? Register'),
-                  ),
-                ],
+                    )
+                  ],
+                ),
               ),
             ),
           ),
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Widget _buildHeader() {
+    return Row(
+      children: [
+        const CircleAvatar(
+          backgroundImage: AssetImage('lib/images/img.png'),
+        ),
+        const SizedBox(width: 10),
+        Text(
+          'CELEBRATING',
+          style: GoogleFonts.lato(
+            fontSize: 25,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSignInText() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Sign in',
+          style: GoogleFonts.andika(
+            fontSize: 50,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        Row(
+          children: [
+            Text(
+              'Don\'t have an account? ',
+              style: GoogleFonts.andika(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            GestureDetector(
+              onTap: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const RegisterPage(),
+                  ),
+                );
+              },
+              child: Text(
+                'Sign Up',
+                style: GoogleFonts.andika(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey.shade800,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildForm() {
+    return Column(
+      children: [
+        TextFormField(
+          controller: _usernameController,
+          decoration: const InputDecoration(
+            labelText: 'Username',
+            labelStyle: TextStyle(color: Colors.white),
+            focusedBorder: OutlineInputBorder(
+              borderSide: BorderSide(color: Colors.white),
+            ),
+            border: OutlineInputBorder(),
+          ),
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Please enter your username';
+            }
+            return null;
+          },
+        ),
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: _passwordController,
+          obscureText: true,
+          decoration: const InputDecoration(
+            labelText: 'Password',
+            labelStyle: TextStyle(color: Colors.white),
+            focusedBorder: OutlineInputBorder(
+              borderSide: BorderSide(color: Colors.white),
+            ),
+            border: OutlineInputBorder(),
+          ),
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Please enter your password';
+            }
+            return null;
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSignInButton() {
+    return ElevatedButton(
+      onPressed: _isLoading ? null : _login,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(vertical: 15),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+      child: _isLoading
+          ? const CircularProgressIndicator()
+          : Text(
+              'Sign In',
+              style: GoogleFonts.andika(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.amber[600],
+              ),
+            ),
+    );
+  }
+
+  Widget _buildSocialButtons() {
+    return const SizedBox.shrink(); // Remove social buttons for now
   }
 }

@@ -8,7 +8,7 @@ import 'screens/login_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/search_screen.dart';
 import 'services/notification_service.dart';
-import 'AuthService.dart';
+import 'services/auth_service.dart';
 import 'models/notification.dart' as model;
 
 void main() {
@@ -27,14 +27,15 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Celebrate',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        primarySwatch: Colors.blue,
+        primarySwatch: Colors.orange,
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
       initialRoute: '/',
       routes: {
         '/': (context) => const SplashScreen(),
-        '/login': (context) => const LoginScreen(),
+        '/login': (context) => const LoginPage(),
         '/home': (context) => const MainScreen(),
         '/search': (context) => const SearchScreen(),
       },
@@ -52,11 +53,13 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
   int _unreadNotifications = 0;
-  final NotificationService _notificationService = NotificationService();
+  late final NotificationService _notificationService;
 
   @override
   void initState() {
     super.initState();
+    final authService = Provider.of<AuthService>(context, listen: false);
+    _notificationService = NotificationService(authService);
     _checkAuth();
     _loadUnreadNotifications();
     _setupNotificationWebSocket();

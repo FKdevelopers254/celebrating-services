@@ -2,16 +2,16 @@ spring:
   application:
     name: news-feed-service
   config:
-    import: "optional:configserver:"
+    import: "optional:configserver:http://localhost:8888"
   datasource:
-    url: jdbc:postgresql://localhost:5432/celebrate_news_feed
-    username: postgres
-    password: postgres
+    url: jdbc:postgresql://localhost:5432/celebratedb
+    username: celebrate
+    password: celebrate123
     driver-class-name: org.postgresql.Driver
   r2dbc:
-    url: r2dbc:postgresql://localhost:5432/celebrate_news_feed
-    username: postgres
-    password: postgres
+    url: r2dbc:postgresql://localhost:5432/celebratedb
+    username: celebrate
+    password: celebrate123
   jpa:
     hibernate:
       ddl-auto: update

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../services/notification_service.dart';
 import '../services/chat_service.dart';
+import '../services/auth_service.dart';
 import 'home_screen.dart';
 import 'notifications_screen.dart';
 import 'chat_list_screen.dart';
@@ -15,8 +17,8 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
-  final NotificationService _notificationService = NotificationService();
-  final ChatService _chatService = ChatService();
+  late final NotificationService _notificationService;
+  late final ChatService _chatService;
   int _unreadNotifications = 0;
   int _unreadMessages = 0;
 
@@ -30,13 +32,16 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
+    final authService = Provider.of<AuthService>(context, listen: false);
+    _notificationService = NotificationService(authService);
+    _chatService = ChatService();
     _loadUnreadCounts();
     _setupNotificationWebSocket();
   }
 
   @override
   void dispose() {
-    _notificationService.disconnect();
+    _notificationService.dispose();
     _chatService.disconnect();
     super.dispose();
   }

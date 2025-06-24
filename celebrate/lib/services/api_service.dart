@@ -3,9 +3,10 @@ import 'package:http/http.dart' as http;
 import '../models/user.dart';
 import '../models/celebrity.dart';
 import '../models/feed_post.dart';
+import 'package:celebrate/utils/constants.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://197.254.53.252:2323';
+  static const String baseUrl = ApiConstants.baseUrl;
 
   Future<String> register(
       String username, String email, String password, String role) async {

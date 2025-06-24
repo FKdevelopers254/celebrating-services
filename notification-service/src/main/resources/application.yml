@@ -2,11 +2,11 @@ spring:
   application:
     name: notification-service
   config:
-    import: "optional:configserver:"
+    import: "optional:configserver:http://localhost:8888"
   datasource:
-    url: jdbc:postgresql://localhost:5432/celebrate_notification
-    username: postgres
-    password: postgres
+    url: jdbc:postgresql://localhost:5432/celebratedb
+    username: celebrate
+    password: celebrate123
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:

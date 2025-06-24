@@ -50,6 +50,7 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.orange,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -61,10 +62,19 @@ class _SplashScreenState extends State<SplashScreen> {
             ),
             const SizedBox(height: 24),
             const Text(
-              'Celebrate',
+              'Celeb',
               style: TextStyle(
                 fontSize: 32,
                 fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const Text(
+              'Rate',
+              style: TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
               ),
             ),
             const SizedBox(height: 16),

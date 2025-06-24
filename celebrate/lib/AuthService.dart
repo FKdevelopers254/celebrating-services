@@ -168,7 +168,7 @@ class AuthService extends ChangeNotifier {
       String username, String email, String password) async {
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/api/auth/register'),
+        Uri.parse(ApiConfig.registerUrl),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -199,36 +199,63 @@ class AuthService extends ChangeNotifier {
         return {
           'success': false,
           'message': 'Registration failed',
-          'details': response.body
+          'details': response.body,
         };
       }
     } catch (e) {
+      print('Registration error: $e');
       return {
         'success': false,
-        'message': 'Registration failed',
-        'details': e.toString()
+        'message': 'Network error occurred',
+        'details': e.toString(),
       };
     }
   }
 
   Future<Map<String, dynamic>> login(String username, String password) async {
-    final response = await _makeRequest(
-      'POST',
-      '/api/auth/login',
-      body: {
-        'username': username,
-        'password': password,
-      },
-    );
+    try {
+      final response = await http.post(
+        Uri.parse(ApiConfig.loginUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({
+          'username': username,
+          'password': password,
+        }),
+      );
 
-    if (response['success']) {
-      final token = response['data']['token'];
-      final role = response['data']['role'];
-      await setToken(token);
-      await setRole(role);
+      print('Login response status: ${response.statusCode}');
+      print('Login response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['token'] != null) {
+          await setToken(data['token']);
+          await setRole(data['role'] ?? 'USER');
+          if (data['userId'] != null) {
+            await _storage.write(
+                key: 'user_id', value: data['userId'].toString());
+            _userId = data['userId'];
+          }
+        }
+        return {'success': true, 'data': data, 'message': 'Login successful'};
+      } else {
+        return {
+          'success': false,
+          'message': 'Login failed',
+          'details': response.body,
+        };
+      }
+    } catch (e) {
+      print('Login error: $e');
+      return {
+        'success': false,
+        'message': 'Network error occurred',
+        'details': e.toString(),
+      };
     }
-
-    return response;
   }
 
   Future<bool> isAuthenticated() async {

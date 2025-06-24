@@ -55,7 +55,7 @@ spring:
             - Path=/api/awards/**
 
 server:
-  port: 2323
+  port: 8080
 
 eureka:
   client:

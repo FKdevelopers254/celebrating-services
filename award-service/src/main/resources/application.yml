@@ -2,11 +2,11 @@ spring:
   application:
     name: award-service
   config:
-    import: "configserver:"
+    import: "optional:configserver:http://localhost:8888"
   datasource:
-    url: jdbc:postgresql://localhost:5432/celebrate_awards
-    username: postgres
-    password: postgres
+    url: jdbc:postgresql://localhost:5432/celebratedb
+    username: celebrate
+    password: celebrate123
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -32,6 +32,8 @@ eureka:
   instance:
     prefer-ip-address: true
     hostname: localhost
+    lease-renewal-interval-in-seconds: 30
+    lease-expiration-duration-in-seconds: 90
 
 management:
   endpoints:

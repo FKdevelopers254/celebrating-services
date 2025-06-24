@@ -3,7 +3,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../utils/constants.dart';
-import '../config/api_config.dart';
+import 'package:celebrate/models/user.dart';
 
 class AuthService extends ChangeNotifier {
   final storage = const FlutterSecureStorage();
@@ -50,54 +50,55 @@ class AuthService extends ChangeNotifier {
   Future<Map<String, dynamic>> login(
       String email, String password, String role) async {
     try {
+      final uri = Uri.parse('${ApiConstants.baseUrl}/api/auth/login');
+      print('Attempting login to: $uri'); // Debug log
+
+      final headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        if (kIsWeb) 'mode': 'no-cors',
+      };
+
       final response = await _client
           .post(
-            Uri.parse('${ApiConfig.baseUrl}${ApiConfig.login}'),
-            headers: ApiConfig.defaultHeaders,
+            uri,
+            headers: headers,
             body: jsonEncode({
               'email': email,
               'password': password,
               'role': role,
             }),
           )
-          .timeout(ApiConfig.connectionTimeout);
+          .timeout(const Duration(seconds: 30));
 
-      final responseData = jsonDecode(response.body);
+      print('Response status: ${response.statusCode}'); // Debug log
+      print('Response body: ${response.body}'); // Debug log
 
-      switch (response.statusCode) {
-        case 200:
-          await _handleAuthResponse(responseData);
-          return {
-            'success': true,
-            'message': 'Login successful',
-            'data': responseData
-          };
-        case 401:
-          return {
-            'success': false,
-            'message': 'Invalid credentials',
-            'error': responseData
-          };
-        case 403:
-          return {
-            'success': false,
-            'message': 'Access denied',
-            'error': responseData
-          };
-        default:
-          return {
-            'success': false,
-            'message': responseData['message'] ?? 'Login failed',
-            'error': responseData
-          };
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        await _handleAuthResponse(responseData);
+        return {
+          'success': true,
+          'message': 'Login successful',
+          'data': responseData
+        };
+      } else {
+        final responseData = jsonDecode(response.body);
+        return {
+          'success': false,
+          'message': responseData['message'] ?? 'Login failed',
+          'error': responseData
+        };
       }
     } on http.ClientException catch (e) {
+      print('Network error: $e'); // Debug log
       return {
         'success': false,
         'message': 'Network error: ${e.message}',
         'error': e.toString()
       };
     } catch (e) {
+      print('Unexpected error: $e'); // Debug log
       return {
         'success': false,
         'message': 'An unexpected error occurred',
@@ -109,11 +110,23 @@ class AuthService extends ChangeNotifier {
   // Register method
   Future<Map<String, dynamic>> register(Map<String, dynamic> userData) async {
     try {
-      final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}${ApiConfig.register}'),
-        headers: {'Content-Type': 'application/json'},
+      final uri = Uri.parse('${ApiConstants.baseUrl}/api/auth/register');
+      print('Attempting registration to: $uri'); // Debug log
+
+      final headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        if (kIsWeb) 'mode': 'no-cors',
+      };
+
+      final response = await _client.post(
+        uri,
+        headers: headers,
         body: jsonEncode(userData),
       );
+
+      print('Response status: ${response.statusCode}'); // Debug log
+      print('Response body: ${response.body}'); // Debug log
 
       if (response.statusCode == 201) {
         final data = jsonDecode(response.body);
@@ -132,6 +145,7 @@ class AuthService extends ChangeNotifier {
         };
       }
     } catch (e) {
+      print('Registration error: $e'); // Debug log
       return {
         'success': false,
         'message': 'Network error occurred',
@@ -145,12 +159,17 @@ class AuthService extends ChangeNotifier {
     if (_token == null) return false;
 
     try {
-      final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}${ApiConfig.refreshToken}'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $_token'
-        },
+      final uri = Uri.parse('${ApiConstants.baseUrl}/api/auth/refresh');
+      final headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $_token',
+        if (kIsWeb) 'mode': 'no-cors',
+      };
+
+      final response = await _client.post(
+        uri,
+        headers: headers,
       );
 
       if (response.statusCode == 200) {
@@ -177,43 +196,43 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  // Set token and role
-  Future<void> setToken(String token) async {
-    await storage.write(key: ApiConstants.authTokenKey, value: token);
+  // Token management
+  Future<void> setToken(String? token) async {
     _token = token;
-    notifyListeners();
-  }
-
-  Future<void> setRole(String role) async {
-    await storage.write(key: ApiConstants.userRoleKey, value: role);
-    _role = role;
-    notifyListeners();
-  }
-
-  Future<void> setUserId(String userId) async {
-    await storage.write(key: ApiConstants.userIdKey, value: userId);
-    _userId = userId;
-    notifyListeners();
-  }
-
-  // Clear token and role (logout)
-  Future<void> logout() async {
-    await storage.deleteAll();
-    _token = null;
-    _role = null;
-    _userId = null;
-    _tokenExpiry = null;
-    notifyListeners();
-  }
-
-  // Get auth headers
-  Future<Map<String, String>> getAuthHeaders() async {
-    if (!isAuthenticated) {
-      throw Exception('Not authenticated');
+    if (token != null) {
+      await storage.write(key: ApiConstants.authTokenKey, value: token);
+    } else {
+      await storage.delete(key: ApiConstants.authTokenKey);
     }
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer $_token',
-    };
+    notifyListeners();
+  }
+
+  Future<void> setRole(String? role) async {
+    _role = role;
+    if (role != null) {
+      await storage.write(key: ApiConstants.userRoleKey, value: role);
+    } else {
+      await storage.delete(key: ApiConstants.userRoleKey);
+    }
+    notifyListeners();
+  }
+
+  Future<void> setUserId(String? userId) async {
+    _userId = userId;
+    if (userId != null) {
+      await storage.write(key: ApiConstants.userIdKey, value: userId);
+    } else {
+      await storage.delete(key: ApiConstants.userIdKey);
+    }
+    notifyListeners();
+  }
+
+  Future<void> logout() async {
+    await setToken(null);
+    await setRole(null);
+    await setUserId(null);
+    _tokenExpiry = null;
+    await storage.delete(key: 'token_expiry');
+    notifyListeners();
   }
 }

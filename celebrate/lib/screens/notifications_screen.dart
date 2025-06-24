@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import '../models/notification.dart' as app_notification;
+import 'package:provider/provider.dart';
+import '../models/notification.dart';
 import '../services/notification_service.dart';
+import '../services/auth_service.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({Key? key}) : super(key: key);
@@ -10,8 +12,8 @@ class NotificationsScreen extends StatefulWidget {
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
-  final NotificationService _notificationService = NotificationService();
-  final List<app_notification.Notification> _notifications = [];
+  late final NotificationService _notificationService;
+  final List<NotificationModel> _notifications = [];
   final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
   bool _hasMore = true;
@@ -20,6 +22,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   @override
   void initState() {
     super.initState();
+    final authService = Provider.of<AuthService>(context, listen: false);
+    _notificationService = NotificationService(authService);
     _loadNotifications();
     _scrollController.addListener(_onScroll);
     _setupWebSocket();
@@ -28,7 +32,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   @override
   void dispose() {
     _scrollController.dispose();
-    _notificationService.disconnect();
+    _notificationService.dispose();
     super.dispose();
   }
 
@@ -82,7 +86,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       await _notificationService.markAllAsRead();
       setState(() {
         for (var notification in _notifications) {
-          notification = app_notification.Notification(
+          notification = NotificationModel(
             id: notification.id,
             userId: notification.userId,
             title: notification.title,
@@ -104,22 +108,34 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
-  Widget _buildNotificationItem(app_notification.Notification notification) {
+  Widget _buildNotificationItem(NotificationModel notification) {
     IconData icon;
     Color color;
 
     switch (notification.type) {
-      case 'like':
+      case NotificationModel.postLike:
         icon = Icons.favorite;
         color = Colors.red;
         break;
-      case 'comment':
+      case NotificationModel.postComment:
         icon = Icons.comment;
         color = Colors.blue;
         break;
-      case 'rating':
+      case NotificationModel.rating:
         icon = Icons.star;
         color = Colors.amber;
+        break;
+      case NotificationModel.newFollower:
+        icon = Icons.person_add;
+        color = Colors.green;
+        break;
+      case NotificationModel.mention:
+        icon = Icons.alternate_email;
+        color = Colors.purple;
+        break;
+      case NotificationModel.directMessage:
+        icon = Icons.message;
+        color = Colors.orange;
         break;
       default:
         icon = Icons.notifications;
@@ -154,7 +170,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             try {
               await _notificationService.markAsRead(notification.id);
               setState(() {
-                notification = app_notification.Notification(
+                notification = NotificationModel(
                   id: notification.id,
                   userId: notification.userId,
                   title: notification.title,
