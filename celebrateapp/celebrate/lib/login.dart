@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'AuthService.dart';
+import 'package:provider/provider.dart';
+import 'services/auth_service.dart';
+import 'utils/constants.dart';
 import 'homefeed.dart';
 import 'celebrity_home.dart';
 import 'register.dart';
@@ -15,10 +17,10 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
-  final _usernameController = TextEditingController();
+  final _identifierController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
-  final _authService = AuthService();
+  bool _isPasswordVisible = false;
 
   @override
   void initState() {
@@ -27,14 +29,15 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _checkAuthentication() async {
-    final isAuthenticated = await _authService.isAuthenticated();
-    if (isAuthenticated && mounted) {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    if (authService.isAuthenticated) {
       _navigateToHome();
     }
   }
 
   void _navigateToHome() {
-    final isCelebrity = _authService.role == 'CELEBRITY';
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final isCelebrity = authService.role?.toUpperCase() == 'CELEBRITY';
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
@@ -49,8 +52,9 @@ class _LoginPageState extends State<LoginPage> {
       setState(() => _isLoading = true);
 
       try {
-        final result = await _authService.login(
-          _usernameController.text,
+        final authService = Provider.of<AuthService>(context, listen: false);
+        final result = await authService.login(
+          _identifierController.text,
           _passwordController.text,
         );
 
@@ -59,26 +63,26 @@ class _LoginPageState extends State<LoginPage> {
           _navigateToHome();
         } else {
           if (!mounted) return;
-          final errorMsg = result['message'] ?? "Login failed.";
-          Fluttertoast.showToast(
-            msg: errorMsg,
-            backgroundColor: Colors.red,
-            toastLength: Toast.LENGTH_LONG,
-          );
+          _showError(result['error'] ?? ApiConstants.authError);
         }
       } catch (e) {
         if (!mounted) return;
-        Fluttertoast.showToast(
-          msg: "An error occurred. Please try again later.",
-          backgroundColor: Colors.red,
-          toastLength: Toast.LENGTH_LONG,
-        );
+        _showError(ApiConstants.connectionError);
       } finally {
         if (mounted) {
           setState(() => _isLoading = false);
         }
       }
     }
+  }
+
+  void _showError(String message) {
+    Fluttertoast.showToast(
+      msg: message,
+      backgroundColor: Colors.red,
+      textColor: Colors.white,
+      toastLength: Toast.LENGTH_LONG,
+    );
   }
 
   @override
@@ -108,6 +112,7 @@ class _LoginPageState extends State<LoginPage> {
                             _buildSignInText(),
                             _buildForm(),
                             _buildSignInButton(),
+                            _buildForgotPassword(),
                             _buildSocialButtons(),
                           ],
                         ),
@@ -125,7 +130,7 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   void dispose() {
-    _usernameController.dispose();
+    _identifierController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -200,18 +205,19 @@ class _LoginPageState extends State<LoginPage> {
     return Column(
       children: [
         TextFormField(
-          controller: _usernameController,
-          decoration: const InputDecoration(
-            labelText: 'Username',
-            labelStyle: TextStyle(color: Colors.white),
-            focusedBorder: OutlineInputBorder(
+          controller: _identifierController,
+          decoration: InputDecoration(
+            labelText: 'Email or Username',
+            labelStyle: const TextStyle(color: Colors.white),
+            focusedBorder: const OutlineInputBorder(
               borderSide: BorderSide(color: Colors.white),
             ),
-            border: OutlineInputBorder(),
+            border: const OutlineInputBorder(),
+            prefixIcon: const Icon(Icons.person, color: Colors.white),
           ),
           validator: (value) {
             if (value == null || value.isEmpty) {
-              return 'Please enter your username';
+              return 'Please enter your email or username';
             }
             return null;
           },
@@ -219,14 +225,26 @@ class _LoginPageState extends State<LoginPage> {
         const SizedBox(height: 16),
         TextFormField(
           controller: _passwordController,
-          obscureText: true,
-          decoration: const InputDecoration(
+          obscureText: !_isPasswordVisible,
+          decoration: InputDecoration(
             labelText: 'Password',
-            labelStyle: TextStyle(color: Colors.white),
-            focusedBorder: OutlineInputBorder(
+            labelStyle: const TextStyle(color: Colors.white),
+            focusedBorder: const OutlineInputBorder(
               borderSide: BorderSide(color: Colors.white),
             ),
-            border: OutlineInputBorder(),
+            border: const OutlineInputBorder(),
+            prefixIcon: const Icon(Icons.lock, color: Colors.white),
+            suffixIcon: IconButton(
+              icon: Icon(
+                _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                color: Colors.white,
+              ),
+              onPressed: () {
+                setState(() {
+                  _isPasswordVisible = !_isPasswordVisible;
+                });
+              },
+            ),
           ),
           validator: (value) {
             if (value == null || value.isEmpty) {
@@ -250,7 +268,14 @@ class _LoginPageState extends State<LoginPage> {
         ),
       ),
       child: _isLoading
-          ? const CircularProgressIndicator()
+          ? const SizedBox(
+              height: 20,
+              width: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.amber),
+              ),
+            )
           : Text(
               'Sign In',
               style: GoogleFonts.andika(
@@ -262,7 +287,24 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
+  Widget _buildForgotPassword() {
+    return TextButton(
+      onPressed: () {
+        // TODO: Implement forgot password functionality
+      },
+      child: Text(
+        'Forgot Password?',
+        style: GoogleFonts.andika(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          color: Colors.white,
+        ),
+      ),
+    );
+  }
+
   Widget _buildSocialButtons() {
-    return const SizedBox.shrink(); // Remove social buttons for now
+    // TODO: Implement social login buttons if needed
+    return const SizedBox.shrink();
   }
 }

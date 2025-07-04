@@ -7,14 +7,16 @@ import 'screens/profile_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/search_screen.dart';
+import 'register.dart';
+import 'login.dart';
 import 'services/notification_service.dart';
 import 'services/auth_service.dart';
 import 'models/notification.dart' as model;
 
 void main() {
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => AuthService(),
+    ChangeNotifierProvider.value(
+      value: AuthService.instance,
       child: const MyApp(),
     ),
   );
@@ -35,7 +37,6 @@ class MyApp extends StatelessWidget {
       initialRoute: '/',
       routes: {
         '/': (context) => const SplashScreen(),
-        '/login': (context) => const LoginPage(),
         '/home': (context) => const MainScreen(),
         '/search': (context) => const SearchScreen(),
       },

@@ -1,43 +1,54 @@
 class User {
-  final int id;
+  final String id;
   final String username;
-  final String displayName;
-  final String? email;
-  final String? profileImage;
-  final String? location;
+  final String email;
+  final String fullName;
+  final String role;
   final String? bio;
+  final String? location;
+  final String? profileImageUrl;
+  final bool isPrivate;
+  final bool isVerified;
   final DateTime createdAt;
-  final int followersCount;
-  final int followingCount;
-  final bool isFollowing;
+  final DateTime updatedAt;
+  final UserStats? stats;
+  final CelebrityProfile? celebrityProfile;
 
   User({
     required this.id,
     required this.username,
-    required this.displayName,
-    this.email,
-    this.profileImage,
-    this.location,
+    required this.email,
+    required this.fullName,
+    required this.role,
     this.bio,
+    this.location,
+    this.profileImageUrl,
+    this.isPrivate = false,
+    this.isVerified = false,
     required this.createdAt,
-    required this.followersCount,
-    required this.followingCount,
-    required this.isFollowing,
+    required this.updatedAt,
+    this.stats,
+    this.celebrityProfile,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
-      id: json['id'] as int,
-      username: json['username'] as String,
-      displayName: json['displayName'] as String,
-      email: json['email'] as String?,
-      profileImage: json['profileImage'] as String?,
-      location: json['location'] as String?,
-      bio: json['bio'] as String?,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      followersCount: json['followersCount'] as int,
-      followingCount: json['followingCount'] as int,
-      isFollowing: json['isFollowing'] as bool? ?? false,
+      id: json['id'],
+      username: json['username'],
+      email: json['email'],
+      fullName: json['fullName'],
+      role: json['role'],
+      bio: json['bio'],
+      location: json['location'],
+      profileImageUrl: json['profileImageUrl'],
+      isPrivate: json['isPrivate'] ?? false,
+      isVerified: json['isVerified'] ?? false,
+      createdAt: DateTime.parse(json['createdAt']),
+      updatedAt: DateTime.parse(json['updatedAt']),
+      stats: json['stats'] != null ? UserStats.fromJson(json['stats']) : null,
+      celebrityProfile: json['celebrityProfile'] != null
+          ? CelebrityProfile.fromJson(json['celebrityProfile'])
+          : null,
     );
   }
 
@@ -45,15 +56,55 @@ class User {
     return {
       'id': id,
       'username': username,
-      'displayName': displayName,
       'email': email,
-      'profileImage': profileImage,
-      'location': location,
+      'fullName': fullName,
+      'role': role,
       'bio': bio,
+      'location': location,
+      'profileImageUrl': profileImageUrl,
+      'isPrivate': isPrivate,
+      'isVerified': isVerified,
       'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
+      if (stats != null) 'stats': stats!.toJson(),
+      if (celebrityProfile != null)
+        'celebrityProfile': celebrityProfile!.toJson(),
+    };
+  }
+}
+
+class UserStats {
+  final String userId;
+  final int postsCount;
+  final int followersCount;
+  final int followingCount;
+  final DateTime updatedAt;
+
+  UserStats({
+    required this.userId,
+    required this.postsCount,
+    required this.followersCount,
+    required this.followingCount,
+    required this.updatedAt,
+  });
+
+  factory UserStats.fromJson(Map<String, dynamic> json) {
+    return UserStats(
+      userId: json['userId'],
+      postsCount: json['postsCount'] ?? 0,
+      followersCount: json['followersCount'] ?? 0,
+      followingCount: json['followingCount'] ?? 0,
+      updatedAt: DateTime.parse(json['updatedAt']),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'userId': userId,
+      'postsCount': postsCount,
       'followersCount': followersCount,
       'followingCount': followingCount,
-      'isFollowing': isFollowing,
+      'updatedAt': updatedAt.toIso8601String(),
     };
   }
 }

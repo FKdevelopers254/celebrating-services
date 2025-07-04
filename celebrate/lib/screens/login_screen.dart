@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../AuthService.dart';
-import '../homefeed.dart';
-import '../celebrity_home.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import '../config/api_config.dart';
 import '../register.dart';
+import '../screens/home_screen.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({Key? key}) : super(key: key);
@@ -18,48 +19,39 @@ class _LoginPageState extends State<LoginPage> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
-  final _authService = AuthService.instance;
-
-  @override
-  void initState() {
-    super.initState();
-    _checkAuthentication();
-  }
-
-  Future<void> _checkAuthentication() async {
-    final isAuthenticated = await _authService.isAuthenticated();
-    if (isAuthenticated && mounted) {
-      _navigateToHome();
-    }
-  }
-
-  void _navigateToHome() {
-    final isCelebrity = _authService.role == 'CELEBRITY';
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (context) =>
-            isCelebrity ? const CelebrityFeed() : const HomeFeed(),
-      ),
-    );
-  }
 
   Future<void> _login() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
 
       try {
-        final result = await _authService.login(
-          _usernameController.text,
-          _passwordController.text,
+        final response = await http.post(
+          Uri.parse(ApiConfig.loginUrl),
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({
+            'username': _usernameController.text,
+            'password': _passwordController.text,
+          }),
         );
 
-        if (result['success']) {
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          final token = data['token'];
+
+          // Store the token securely (you should use flutter_secure_storage in production)
+          // await storage.write(key: 'auth_token', value: token);
+
           if (!mounted) return;
-          _navigateToHome();
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
+          );
         } else {
           if (!mounted) return;
-          final errorMsg = result['message'] ?? "Login failed.";
+          final errorData = jsonDecode(response.body);
+          final errorMsg = errorData['message'] ?? "Login failed.";
           Fluttertoast.showToast(
             msg: errorMsg,
             backgroundColor: Colors.red,
@@ -82,37 +74,41 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   @override
+  void dispose() {
+    _usernameController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.amber[600],
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            child: Padding(
+            child: Container(
+              width: double.infinity,
+              constraints: BoxConstraints(
+                maxWidth: 400,
+                minHeight: MediaQuery.of(context).size.height - 40,
+              ),
               padding: const EdgeInsets.all(20.0),
               child: Form(
                 key: _formKey,
                 child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.amber[600],
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(10.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            _buildHeader(),
-                            _buildSignInText(),
-                            _buildForm(),
-                            _buildSignInButton(),
-                            _buildSocialButtons(),
-                          ],
-                        ),
-                      ),
-                    )
+                    _buildHeader(),
+                    const SizedBox(height: 50),
+                    _buildSignInText(),
+                    const SizedBox(height: 30),
+                    _buildForm(),
+                    const SizedBox(height: 30),
+                    _buildLoginButton(),
+                    const SizedBox(height: 20),
+                    _buildRegisterLink(),
                   ],
                 ),
               ),
@@ -123,17 +119,12 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  @override
-  void dispose() {
-    _usernameController.dispose();
-    _passwordController.dispose();
-    super.dispose();
-  }
-
   Widget _buildHeader() {
     return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         const CircleAvatar(
+          radius: 25,
           backgroundImage: AssetImage('lib/images/img.png'),
         ),
         const SizedBox(width: 10),
@@ -151,7 +142,6 @@ class _LoginPageState extends State<LoginPage> {
 
   Widget _buildSignInText() {
     return Column(
-      mainAxisAlignment: MainAxisAlignment.start,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
@@ -165,7 +155,7 @@ class _LoginPageState extends State<LoginPage> {
         Row(
           children: [
             Text(
-              'Don\'t have an account? ',
+              'New to Celebrating? ',
               style: GoogleFonts.andika(
                 fontSize: 15,
                 fontWeight: FontWeight.bold,
@@ -197,6 +187,14 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Widget _buildForm() {
+    const inputBorder = OutlineInputBorder(
+      borderSide: BorderSide(color: Colors.white),
+    );
+
+    const errorBorder = OutlineInputBorder(
+      borderSide: BorderSide(color: Colors.red),
+    );
+
     return Column(
       children: [
         TextFormField(
@@ -204,10 +202,10 @@ class _LoginPageState extends State<LoginPage> {
           decoration: const InputDecoration(
             labelText: 'Username',
             labelStyle: TextStyle(color: Colors.white),
-            focusedBorder: OutlineInputBorder(
-              borderSide: BorderSide(color: Colors.white),
-            ),
-            border: OutlineInputBorder(),
+            border: inputBorder,
+            enabledBorder: inputBorder,
+            focusedBorder: inputBorder,
+            errorBorder: errorBorder,
           ),
           validator: (value) {
             if (value == null || value.isEmpty) {
@@ -216,17 +214,17 @@ class _LoginPageState extends State<LoginPage> {
             return null;
           },
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         TextFormField(
           controller: _passwordController,
           obscureText: true,
           decoration: const InputDecoration(
             labelText: 'Password',
             labelStyle: TextStyle(color: Colors.white),
-            focusedBorder: OutlineInputBorder(
-              borderSide: BorderSide(color: Colors.white),
-            ),
-            border: OutlineInputBorder(),
+            border: inputBorder,
+            enabledBorder: inputBorder,
+            focusedBorder: inputBorder,
+            errorBorder: errorBorder,
           ),
           validator: (value) {
             if (value == null || value.isEmpty) {
@@ -239,30 +237,55 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Widget _buildSignInButton() {
+  Widget _buildLoginButton() {
     return ElevatedButton(
       onPressed: _isLoading ? null : _login,
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(vertical: 15),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(30),
         ),
       ),
       child: _isLoading
           ? const CircularProgressIndicator()
           : Text(
-              'Sign In',
-              style: GoogleFonts.andika(
+              'Login',
+              style: TextStyle(
+                color: Colors.amber[600],
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Colors.amber[600],
               ),
             ),
     );
   }
 
-  Widget _buildSocialButtons() {
-    return const SizedBox.shrink(); // Remove social buttons for now
+  Widget _buildRegisterLink() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          'Don\'t have an account? ',
+          style: TextStyle(
+            color: Colors.grey.shade200,
+          ),
+        ),
+        GestureDetector(
+          onTap: () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const RegisterPage()),
+            );
+          },
+          child: const Text(
+            'Register here',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }

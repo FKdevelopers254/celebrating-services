@@ -3,17 +3,22 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../utils/constants.dart';
-import 'package:celebrate/models/user.dart';
+import 'package:flutter/material.dart';
+import '../config/api_config.dart';
 
 class AuthService extends ChangeNotifier {
+  static final AuthService _instance = AuthService._internal();
+  static AuthService get instance => _instance;
+
   final storage = const FlutterSecureStorage();
   final http.Client _client = http.Client();
   String? _token;
   String? _role;
   String? _userId;
   DateTime? _tokenExpiry;
+  bool _isAuthenticated = false;
 
-  AuthService() : super(); // Call the parent constructor
+  AuthService._internal();
 
   @override
   void dispose() {
@@ -24,11 +29,7 @@ class AuthService extends ChangeNotifier {
   String? get token => _token;
   String? get role => _role;
   String? get userId => _userId;
-  bool get isAuthenticated {
-    return _token != null &&
-        _tokenExpiry != null &&
-        _tokenExpiry!.isAfter(DateTime.now());
-  }
+  bool get isAuthenticated => _isAuthenticated;
 
   // Initialize the service
   Future<void> init() async {
@@ -40,39 +41,39 @@ class AuthService extends ChangeNotifier {
       if (expiryStr != null) {
         _tokenExpiry = DateTime.parse(expiryStr);
       }
+      _isAuthenticated = _token != null &&
+          _tokenExpiry != null &&
+          _tokenExpiry!.isAfter(DateTime.now());
       notifyListeners();
     } catch (e) {
       print('Error initializing auth: $e');
     }
   }
 
-  // Login method with improved error handling
-  Future<Map<String, dynamic>> login(
-      String email, String password, String role) async {
+  // Login method
+  Future<Map<String, dynamic>> login(String identifier, String password,
+      {String role = 'USER'}) async {
     try {
-      final uri = Uri.parse('${ApiConstants.baseUrl}/api/auth/login');
-      print('Attempting login to: $uri'); // Debug log
-
-      final headers = {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        if (kIsWeb) 'mode': 'no-cors',
-      };
-
       final response = await _client
           .post(
-            uri,
-            headers: headers,
+            Uri.parse('${ApiConstants.baseUrl}/api/auth/login'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
             body: jsonEncode({
-              'email': email,
+              if (identifier.contains('@'))
+                'email': identifier
+              else
+                'username': identifier,
               'password': password,
-              'role': role,
+              'role': role.toUpperCase(),
             }),
           )
           .timeout(const Duration(seconds: 30));
 
-      print('Response status: ${response.statusCode}'); // Debug log
-      print('Response body: ${response.body}'); // Debug log
+      print('Login response status: ${response.statusCode}');
+      print('Login response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final responseData = jsonDecode(response.body);
@@ -90,18 +91,11 @@ class AuthService extends ChangeNotifier {
           'error': responseData
         };
       }
-    } on http.ClientException catch (e) {
-      print('Network error: $e'); // Debug log
-      return {
-        'success': false,
-        'message': 'Network error: ${e.message}',
-        'error': e.toString()
-      };
     } catch (e) {
-      print('Unexpected error: $e'); // Debug log
+      print('Login error: $e');
       return {
         'success': false,
-        'message': 'An unexpected error occurred',
+        'message': 'Network error occurred',
         'error': e.toString()
       };
     }
@@ -110,25 +104,16 @@ class AuthService extends ChangeNotifier {
   // Register method
   Future<Map<String, dynamic>> register(Map<String, dynamic> userData) async {
     try {
-      final uri = Uri.parse('${ApiConstants.baseUrl}/api/auth/register');
-      print('Attempting registration to: $uri'); // Debug log
-
-      final headers = {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        if (kIsWeb) 'mode': 'no-cors',
-      };
-
       final response = await _client.post(
-        uri,
-        headers: headers,
+        Uri.parse('${ApiConstants.baseUrl}/api/auth/register'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
         body: jsonEncode(userData),
       );
 
-      print('Response status: ${response.statusCode}'); // Debug log
-      print('Response body: ${response.body}'); // Debug log
-
-      if (response.statusCode == 201) {
+      if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         await _handleAuthResponse(data);
         return {
@@ -145,42 +130,11 @@ class AuthService extends ChangeNotifier {
         };
       }
     } catch (e) {
-      print('Registration error: $e'); // Debug log
       return {
         'success': false,
         'message': 'Network error occurred',
         'error': e.toString()
       };
-    }
-  }
-
-  // Refresh token
-  Future<bool> refreshToken() async {
-    if (_token == null) return false;
-
-    try {
-      final uri = Uri.parse('${ApiConstants.baseUrl}/api/auth/refresh');
-      final headers = {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $_token',
-        if (kIsWeb) 'mode': 'no-cors',
-      };
-
-      final response = await _client.post(
-        uri,
-        headers: headers,
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        await _handleAuthResponse(data);
-        return true;
-      }
-      return false;
-    } catch (e) {
-      print('Error refreshing token: $e');
-      return false;
     }
   }
 
@@ -194,6 +148,8 @@ class AuthService extends ChangeNotifier {
       await storage.write(
           key: 'token_expiry', value: _tokenExpiry!.toIso8601String());
     }
+    _isAuthenticated = true;
+    notifyListeners();
   }
 
   // Token management
@@ -227,12 +183,27 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Clear token and role (logout)
   Future<void> logout() async {
-    await setToken(null);
-    await setRole(null);
-    await setUserId(null);
-    _tokenExpiry = null;
-    await storage.delete(key: 'token_expiry');
+    try {
+      await storage.delete(key: ApiConstants.authTokenKey);
+      await storage.delete(key: ApiConstants.userRoleKey);
+      await storage.delete(key: ApiConstants.userIdKey);
+      await storage.delete(key: 'token_expiry');
+      _token = null;
+      _role = null;
+      _userId = null;
+      _tokenExpiry = null;
+      _isAuthenticated = false;
+      notifyListeners();
+    } catch (e) {
+      print('Error during logout: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> checkAuthStatus() async {
+    await init(); // This will properly update the isAuthenticated state
     notifyListeners();
   }
 }

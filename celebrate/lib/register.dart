@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'AuthService.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'config/api_config.dart';
 import 'login.dart';
 
 class RegisterPage extends StatefulWidget {
@@ -17,9 +19,8 @@ class _RegisterPageState extends State<RegisterPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _fullNameController = TextEditingController();
   bool _isLoading = false;
-  bool _isCelebrity = false;
-  final _authService = AuthService.instance;
 
   Future<void> _register() async {
     if (_formKey.currentState!.validate()) {
@@ -35,13 +36,21 @@ class _RegisterPageState extends State<RegisterPage> {
       setState(() => _isLoading = true);
 
       try {
-        final result = await _authService.register(
-          _usernameController.text,
-          _emailController.text,
-          _passwordController.text,
+        final response = await http.post(
+          Uri.parse(ApiConfig.registerUrl),
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({
+            'username': _usernameController.text,
+            'email': _emailController.text,
+            'password': _passwordController.text,
+            'fullName': _fullNameController.text,
+            'role': 'USER'
+          }),
         );
 
-        if (result['success']) {
+        if (response.statusCode == 200 || response.statusCode == 201) {
           if (!mounted) return;
           Fluttertoast.showToast(
             msg: "Registration successful! Please login.",
@@ -54,7 +63,8 @@ class _RegisterPageState extends State<RegisterPage> {
           );
         } else {
           if (!mounted) return;
-          final errorMsg = result['message'] ?? "Registration failed.";
+          final errorData = jsonDecode(response.body);
+          final errorMsg = errorData['message'] ?? "Registration failed.";
           Fluttertoast.showToast(
             msg: errorMsg,
             backgroundColor: Colors.red,
@@ -82,6 +92,7 @@ class _RegisterPageState extends State<RegisterPage> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _fullNameController.dispose();
     super.dispose();
   }
 
@@ -200,68 +211,76 @@ class _RegisterPageState extends State<RegisterPage> {
       borderSide: BorderSide(color: Colors.red),
     );
 
-    const textStyle = TextStyle(color: Colors.white);
-    const labelStyle = TextStyle(color: Colors.white);
-
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         TextFormField(
           controller: _usernameController,
           decoration: const InputDecoration(
             labelText: 'Username',
-            labelStyle: labelStyle,
+            labelStyle: TextStyle(color: Colors.white),
+            border: inputBorder,
             enabledBorder: inputBorder,
             focusedBorder: inputBorder,
             errorBorder: errorBorder,
-            focusedErrorBorder: errorBorder,
           ),
-          style: textStyle,
           validator: (value) {
             if (value == null || value.isEmpty) {
               return 'Please enter a username';
             }
-            if (value.length < 3) {
-              return 'Username must be at least 3 characters';
+            return null;
+          },
+        ),
+        const SizedBox(height: 20),
+        TextFormField(
+          controller: _fullNameController,
+          decoration: const InputDecoration(
+            labelText: 'Full Name',
+            labelStyle: TextStyle(color: Colors.white),
+            border: inputBorder,
+            enabledBorder: inputBorder,
+            focusedBorder: inputBorder,
+            errorBorder: errorBorder,
+          ),
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Please enter your full name';
             }
             return null;
           },
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         TextFormField(
           controller: _emailController,
           decoration: const InputDecoration(
             labelText: 'Email',
-            labelStyle: labelStyle,
+            labelStyle: TextStyle(color: Colors.white),
+            border: inputBorder,
             enabledBorder: inputBorder,
             focusedBorder: inputBorder,
             errorBorder: errorBorder,
-            focusedErrorBorder: errorBorder,
           ),
-          style: textStyle,
           validator: (value) {
             if (value == null || value.isEmpty) {
               return 'Please enter an email';
             }
-            if (!value.contains('@') || !value.contains('.')) {
+            if (!value.contains('@')) {
               return 'Please enter a valid email';
             }
             return null;
           },
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         TextFormField(
           controller: _passwordController,
           obscureText: true,
           decoration: const InputDecoration(
             labelText: 'Password',
-            labelStyle: labelStyle,
+            labelStyle: TextStyle(color: Colors.white),
+            border: inputBorder,
             enabledBorder: inputBorder,
             focusedBorder: inputBorder,
             errorBorder: errorBorder,
-            focusedErrorBorder: errorBorder,
           ),
-          style: textStyle,
           validator: (value) {
             if (value == null || value.isEmpty) {
               return 'Please enter a password';
@@ -272,19 +291,18 @@ class _RegisterPageState extends State<RegisterPage> {
             return null;
           },
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         TextFormField(
           controller: _confirmPasswordController,
           obscureText: true,
           decoration: const InputDecoration(
             labelText: 'Confirm Password',
-            labelStyle: labelStyle,
+            labelStyle: TextStyle(color: Colors.white),
+            border: inputBorder,
             enabledBorder: inputBorder,
             focusedBorder: inputBorder,
             errorBorder: errorBorder,
-            focusedErrorBorder: errorBorder,
           ),
-          style: textStyle,
           validator: (value) {
             if (value == null || value.isEmpty) {
               return 'Please confirm your password';
@@ -294,24 +312,6 @@ class _RegisterPageState extends State<RegisterPage> {
             }
             return null;
           },
-        ),
-        const SizedBox(height: 16),
-        SwitchListTile(
-          title: Text(
-            'Register as Celebrity',
-            style: GoogleFonts.andika(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          value: _isCelebrity,
-          onChanged: (bool value) {
-            setState(() {
-              _isCelebrity = value;
-            });
-          },
-          activeColor: Colors.white,
-          inactiveTrackColor: Colors.white.withOpacity(0.5),
         ),
       ],
     );
@@ -324,37 +324,48 @@ class _RegisterPageState extends State<RegisterPage> {
         backgroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(vertical: 15),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(30),
         ),
       ),
       child: _isLoading
           ? const CircularProgressIndicator()
           : Text(
               'Register',
-              style: GoogleFonts.andika(
+              style: TextStyle(
+                color: Colors.amber[600],
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Colors.amber[600],
               ),
             ),
     );
   }
 
   Widget _buildLoginLink() {
-    return TextButton(
-      onPressed: () {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const LoginPage()),
-        );
-      },
-      child: Text(
-        'Already have an account? Sign In',
-        style: GoogleFonts.andika(
-          color: Colors.white,
-          fontWeight: FontWeight.bold,
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          'Already have an account? ',
+          style: TextStyle(
+            color: Colors.grey.shade200,
+          ),
         ),
-      ),
+        GestureDetector(
+          onTap: () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const LoginPage()),
+            );
+          },
+          child: const Text(
+            'Login here',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

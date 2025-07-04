@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'dart:async';
 import '../services/auth_service.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({Key? key}) : super(key: key);
@@ -14,71 +14,53 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _checkAuth();
+    _checkAuthAndNavigate();
   }
 
-  Future<void> _checkAuth() async {
-    try {
-      await Future.delayed(const Duration(seconds: 2));
-      if (!mounted) return;
+  Future<void> _checkAuthAndNavigate() async {
+    // Add a minimum delay to show the splash screen
+    await Future.delayed(const Duration(seconds: 2));
 
-      final authService = Provider.of<AuthService>(context, listen: false);
-      await authService.init();
+    if (!mounted) return;
 
-      if (!mounted) return;
+    // Check if there's a stored token
+    final authService = AuthService.instance;
+    await authService.checkAuthStatus();
 
-      if (authService.token != null) {
-        print('Token exists, navigating to home');
-        Navigator.of(context).pushReplacementNamed('/home');
-      } else {
-        print('No token found, navigating to login');
-        Navigator.of(context).pushReplacementNamed('/login');
-      }
-    } catch (e) {
-      print('Error in _checkAuth: $e');
-      if (mounted) {
-        Fluttertoast.showToast(
-          msg: 'Error initializing app: $e',
-          toastLength: Toast.LENGTH_LONG,
-        );
-        // Navigate to login as fallback
-        Navigator.of(context).pushReplacementNamed('/login');
-      }
+    if (!mounted) return;
+
+    if (authService.isAuthenticated) {
+      Navigator.pushReplacementNamed(context, '/home');
+    } else {
+      Navigator.pushReplacementNamed(context, '/login');
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.orange,
+      backgroundColor: Colors.amber[600],
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset(
-              'lib/images/img.png',
-              width: 150,
-              height: 150,
+            const CircleAvatar(
+              radius: 50,
+              backgroundImage: AssetImage('lib/images/img.png'),
             ),
-            const SizedBox(height: 24),
-            const Text(
-              'Celeb',
-              style: TextStyle(
-                fontSize: 32,
+            const SizedBox(height: 20),
+            Text(
+              'CELEBRATING',
+              style: GoogleFonts.lato(
+                fontSize: 35,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
               ),
             ),
-            const Text(
-              'Rate',
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-              ),
+            const SizedBox(height: 20),
+            const CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
             ),
-            const SizedBox(height: 16),
-            const CircularProgressIndicator(),
           ],
         ),
       ),

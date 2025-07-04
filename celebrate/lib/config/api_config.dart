@@ -16,20 +16,18 @@ class ApiConfig {
   static String get refreshTokenUrl => '$baseUrl$authPrefix/refresh';
 
   // User Service (8082)
-  static const String userPrefix =
-      '/api/api/users'; // Note the double /api prefix
+  static const String userPrefix = '/api/users';
   static String get userProfileUrl => '$baseUrl$userPrefix/profile';
-  static String get updateProfileUrl => '$baseUrl$userPrefix/profile';
+  static String get updateProfileUrl => '$baseUrl$userPrefix/update';
   static String getUserByIdUrl(String userId) => '$baseUrl$userPrefix/$userId';
   static String getUserByUsernameUrl(String username) =>
       '$baseUrl$userPrefix/username/$username';
 
   // Post Service (8083)
-  static const String postPrefix = '/api/v1/posts';
-  static String get postsUrl => '$baseUrl$postPrefix';
-  static String createPostUrl(String userId) => '$baseUrl$postPrefix';
-  static String getUserPostsUrl(String userId) =>
-      '$baseUrl$postPrefix/user/$userId';
+  static const String postPrefix = '/api/posts';
+  static String get createPostUrl => '$baseUrl$postPrefix/create';
+  static String get feedUrl => '$baseUrl$postPrefix/feed';
+  static String get userPostsUrl => '$baseUrl$postPrefix/user';
   static String getPostByIdUrl(String postId) => '$baseUrl$postPrefix/$postId';
 
   // Search Service (8084)
@@ -39,13 +37,15 @@ class ApiConfig {
 
   // News Feed Service (8085)
   static const String feedPrefix = '/api/feed';
-  static String get feedUrl => '$baseUrl$feedPrefix';
   static String get feedPostsUrl => '$baseUrl$feedPrefix/posts';
 
   // Messaging Service (8086)
-  static const String messagePrefix = '/api/v1/messages';
-  static String get messagesUrl => '$baseUrl$messagePrefix';
-  static String get conversationsUrl => '$baseUrl$messagePrefix/conversations';
+  static const String messagePrefix = '/api/messages';
+  static String get sendMessageUrl => '$baseUrl$messagePrefix/send';
+  static String get getConversationsUrl =>
+      '$baseUrl$messagePrefix/conversations';
+  static String get getMessagesUrl => '$baseUrl$messagePrefix/messages';
+  static String get wsUrl => 'ws://$host:$gatewayPort/ws';
 
   // Notification Service (8087)
   static const String notificationPrefix = '/api/v1/notifications';

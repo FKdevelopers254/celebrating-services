@@ -1,9 +1,9 @@
 class ApiConstants {
   // API Base URLs
   static const bool isProduction = false;
-  static const String host = isProduction ? 'api.celebrate.com' : 'localhost';
+  static const String host = isProduction ? 'localhost' : 'localhost';
   static const int gatewayPort = 8080;
-  static const String baseUrl = 'http://$host:$gatewayPort';
+  static const String baseUrl = 'http://localhost:8080';
   static const String wsBaseUrl = 'ws://$host:$gatewayPort';
 
   // Storage Keys
@@ -82,4 +82,32 @@ class ApiConstants {
   // Pagination
   static const int defaultPageSize = 20;
   static const int maxPageSize = 100;
+
+  // New endpoints
+  static const String authServiceUrl = 'http://localhost:8081';
+  static const String userServiceUrl = 'http://localhost:8082';
+  static const String postServiceUrl = 'http://localhost:8084';
+
+  // Auth endpoints
+  static const String loginEndpoint = '/api/auth/login';
+  static const String registerEndpoint = '/api/auth/register';
+  static const String refreshTokenEndpoint = '/api/auth/refresh';
+
+  // User endpoints
+  static const String usersEndpoint = '/api/users';
+  static const String celebritiesEndpoint = '/api/users/celebrities';
+  static const String celebritySearchEndpoint = '/api/users/celebrities/search';
+  static const String celebrityProfileEndpoint =
+      '/api/users/{userId}/celebrity-profile';
+
+  // Post endpoints
+  static const String postsEndpoint = '/api/posts';
+  static const String userPostsEndpoint = '/api/posts/user/{userId}';
+  static const String postCommentsEndpoint = '/api/posts/{postId}/comments';
+  static const String postLikesEndpoint = '/api/posts/{postId}/like';
+  static const String postsByTypeEndpoint = '/api/posts/type/{celebrationType}';
+
+  // WebSocket endpoints
+  static const String postsWebSocketEndpoint = '/ws/posts';
+  static const String notificationsWebSocketEndpoint = '/ws/notifications';
 }

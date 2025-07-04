@@ -19,9 +19,18 @@ spring:
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.xml
     enabled: true
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: notification-service-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
 
 server:
-  port: 8087
+  port: 0
 
 eureka:
   client:
@@ -34,6 +43,7 @@ eureka:
     hostname: localhost
     lease-renewal-interval-in-seconds: 30
     lease-expiration-duration-in-seconds: 90
+    instance-id: ${spring.application.name}:${random.uuid}
 
 management:
   endpoints:
@@ -49,4 +59,8 @@ logging:
     root: INFO
     com.celebrating.notification: DEBUG
     org.springframework.web: INFO
-    org.hibernate: INFO 
+    org.hibernate: INFO
+
+kafka:
+  topics:
+    user-events: user-events 

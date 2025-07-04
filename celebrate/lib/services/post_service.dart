@@ -2,8 +2,10 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../models/post.dart';
+import '../models/comment.dart';
+import '../models/like.dart';
 import '../utils/constants.dart';
-import 'package:celebrate/AuthService.dart';
+import '../AuthService.dart';
 
 class PostService {
   static const String baseUrl = ApiConstants.baseUrl;
@@ -13,7 +15,7 @@ class PostService {
   Future<Post> createPost({
     required String title,
     required String content,
-    required String celebrationType,
+    required CelebrationType celebrationType,
     List<String> mediaUrls = const [],
     bool isPrivate = false,
   }) async {
@@ -37,12 +39,12 @@ class PostService {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
-          'X-User-ID': userId.toString(),
         },
         body: jsonEncode({
+          'userId': userId,
           'title': title,
           'content': content,
-          'celebrationType': celebrationType,
+          'celebrationType': celebrationType.toString().split('.').last,
           'mediaUrls': uploadedMediaUrls,
           'isPrivate': isPrivate,
         }),
@@ -83,11 +85,33 @@ class PostService {
     }
   }
 
-  // Get user's posts
-  Future<List<Post>> getUserPosts() async {
+  // Get post by ID
+  Future<Post> getPost(String id) async {
     try {
       final token = await AuthService.getToken();
-      final userId = await AuthService.getUserId();
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/posts/$id'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return Post.fromJson(jsonDecode(response.body));
+      } else {
+        throw Exception('Failed to get post: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Failed to get post: $e');
+    }
+  }
+
+  // Get user's posts
+  Future<List<Post>> getUserPosts(String userId) async {
+    try {
+      final token = await AuthService.getToken();
 
       final response = await http.get(
         Uri.parse('$baseUrl/api/posts/user/$userId'),
@@ -108,13 +132,13 @@ class PostService {
     }
   }
 
-  // Get recent posts
-  Future<List<Post>> getRecentPosts() async {
+  // Get recent posts with pagination
+  Future<List<Post>> getRecentPosts({int page = 0, int size = 20}) async {
     try {
       final token = await AuthService.getToken();
 
       final response = await http.get(
-        Uri.parse('$baseUrl/api/posts/recent'),
+        Uri.parse('$baseUrl/api/posts?page=$page&size=$size'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -132,82 +156,172 @@ class PostService {
     }
   }
 
-  // Delete a post
-  Future<void> deletePost(int postId) async {
+  // Get posts by celebration type
+  Future<List<Post>> getPostsByCelebrationType(CelebrationType type) async {
+    try {
+      final token = await AuthService.getToken();
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/posts/type/${type.toString().split('.').last}'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((json) => Post.fromJson(json)).toList();
+      } else {
+        throw Exception('Failed to get posts: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Failed to get posts: $e');
+    }
+  }
+
+  // Add comment to a post
+  Future<Comment> addComment(String postId, String content) async {
+    try {
+      final token = await AuthService.getToken();
+      final userId = await AuthService.getUserId();
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/posts/$postId/comments'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'userId': userId,
+          'content': content,
+        }),
+      );
+
+      if (response.statusCode == 201) {
+        return Comment.fromJson(jsonDecode(response.body));
+      } else {
+        throw Exception('Failed to add comment: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Failed to add comment: $e');
+    }
+  }
+
+  // Delete a comment
+  Future<void> deleteComment(String commentId) async {
+    try {
+      final token = await AuthService.getToken();
+
+      final response = await http.delete(
+        Uri.parse('$baseUrl/api/posts/comments/$commentId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode != 204) {
+        throw Exception('Failed to delete comment: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Failed to delete comment: $e');
+    }
+  }
+
+  // Get post comments
+  Future<List<Comment>> getPostComments(String postId) async {
+    try {
+      final token = await AuthService.getToken();
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/posts/$postId/comments'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((json) => Comment.fromJson(json)).toList();
+      } else {
+        throw Exception('Failed to get comments: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Failed to get comments: $e');
+    }
+  }
+
+  // Like a post
+  Future<Like> likePost(String postId) async {
+    try {
+      final token = await AuthService.getToken();
+      final userId = await AuthService.getUserId();
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/posts/$postId/like'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'userId': userId}),
+      );
+
+      if (response.statusCode == 201) {
+        return Like.fromJson(jsonDecode(response.body));
+      } else {
+        throw Exception('Failed to like post: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Failed to like post: $e');
+    }
+  }
+
+  // Unlike a post
+  Future<void> unlikePost(String postId) async {
     try {
       final token = await AuthService.getToken();
       final userId = await AuthService.getUserId();
 
       final response = await http.delete(
-        Uri.parse('$baseUrl/api/posts/$postId'),
+        Uri.parse('$baseUrl/api/posts/$postId/like'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
-          'X-User-ID': userId.toString(),
         },
+        body: jsonEncode({'userId': userId}),
       );
 
       if (response.statusCode != 204) {
-        throw Exception('Failed to delete post: ${response.statusCode}');
+        throw Exception('Failed to unlike post: ${response.statusCode}');
       }
     } catch (e) {
-      throw Exception('Failed to delete post: $e');
+      throw Exception('Failed to unlike post: $e');
     }
   }
 
-  // Update a post
-  Future<Post> updatePost(
-    int postId, {
-    String? title,
-    String? content,
-    String? celebrationType,
-    List<String>? mediaUrls,
-    bool? isPrivate,
-  }) async {
+  // Get post likes
+  Future<List<Like>> getPostLikes(String postId) async {
     try {
       final token = await AuthService.getToken();
-      final userId = await AuthService.getUserId();
 
-      // If there are new media URLs that are local paths, upload them first
-      List<String>? uploadedMediaUrls;
-      if (mediaUrls != null) {
-        uploadedMediaUrls = [];
-        for (String mediaUrl in mediaUrls) {
-          if (mediaUrl.startsWith('file://') || !mediaUrl.startsWith('http')) {
-            final uploadedUrl = await _uploadMedia(mediaUrl, token!);
-            uploadedMediaUrls.add(uploadedUrl);
-          } else {
-            uploadedMediaUrls.add(mediaUrl);
-          }
-        }
-      }
-
-      final Map<String, dynamic> updateData = {};
-      if (title != null) updateData['title'] = title;
-      if (content != null) updateData['content'] = content;
-      if (celebrationType != null)
-        updateData['celebrationType'] = celebrationType;
-      if (uploadedMediaUrls != null)
-        updateData['mediaUrls'] = uploadedMediaUrls;
-      if (isPrivate != null) updateData['isPrivate'] = isPrivate;
-
-      final response = await http.put(
-        Uri.parse('$baseUrl/api/posts/$postId'),
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/posts/$postId/likes'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
-          'X-User-ID': userId.toString(),
         },
-        body: jsonEncode(updateData),
       );
 
       if (response.statusCode == 200) {
-        return Post.fromJson(jsonDecode(response.body));
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((json) => Like.fromJson(json)).toList();
       } else {
-        throw Exception('Failed to update post: ${response.statusCode}');
+        throw Exception('Failed to get likes: ${response.statusCode}');
       }
     } catch (e) {
-      throw Exception('Failed to update post: $e');
+      throw Exception('Failed to get likes: $e');
     }
   }
 

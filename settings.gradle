@@ -1,0 +1,13 @@
+rootProject.name = 'celebrating-microservices'
+
+include 'config-server'
+include 'service-registry'
+include 'api-gateway'
+include 'auth-service'
+include 'user-service'
+include 'post-service'
+include 'notification-service'
+include 'common'
+include 'messaging-service'
+include 'news-feed-service'
+include 'search-service' 
