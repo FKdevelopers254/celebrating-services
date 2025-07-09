@@ -2,8 +2,9 @@ package com.celebrating.common.events;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
+import java.io.Serializable;
 
-public abstract class BaseEvent {
+public abstract class BaseEvent implements Serializable {
     private final String eventId;
     private final String eventType;
     private final LocalDateTime timestamp;

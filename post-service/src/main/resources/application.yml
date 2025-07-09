@@ -36,4 +36,10 @@ management:
         include: "*"
   endpoint:
     health:
-      show-details: always 
+      show-details: always
+
+jwt:
+  secret: 8y/B?E(H+MbQeThWmZq4t6w9z$C&F)J@NcRfUjXn2r5u8x/A%D*G-KaPdSgVkYp3
+  expiration: 86400000 # 24 hours in milliseconds
+  refresh-token:
+    expiration: 604800000 # 7 days in milliseconds 

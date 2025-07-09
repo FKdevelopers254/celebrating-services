@@ -29,29 +29,45 @@ class User {
     this.postsList,
   });
 
-  factory User.fromJson(Map<String, dynamic> json) => User(
-        id: json['id'],
-        username: json['username'],
-        password: json['password'] ?? '',
-        email: json['email'],
-        role: json['role'],
-        fullName: json['fullName'],
-        createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
-        updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
-        lastLogin: json['lastLogin'] != null ? DateTime.parse(json['lastLogin']) : null,
-        isActive: json['isActive'],
-        profileImageUrl: json['profileImageUrl'] as String?,
-        postsList: json['postsList'] != null ? (json['postsList'] as List).map((e) => Post.fromJson(e)).toList() : null,
-      );
+  factory User.fromJson(Map<String, dynamic> json) {
+    // If celebrity fields are present, return CelebrityUser
+    if (json['occupation'] != null ||
+        json['bio'] != null ||
+        json['website'] != null) {
+      return CelebrityUser.fromJson(json);
+    }
+    return User(
+      id: json['id'] ?? json['userId'],
+      username: json['username'] ?? '',
+      password: json['password'] ?? '',
+      email: json['email'] ?? '',
+      role: json['role'] ?? 'USER',
+      fullName: json['fullName'] ?? json['username'] ?? '',
+      createdAt:
+          json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
+      updatedAt:
+          json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
+      lastLogin:
+          json['lastLogin'] != null ? DateTime.parse(json['lastLogin']) : null,
+      isActive: json['isActive'] ?? true,
+      profileImageUrl: json['profileImageUrl'] as String?,
+      postsList:
+          json['postsList'] != null
+              ? (json['postsList'] as List)
+                  .map((e) => Post.fromJson(e))
+                  .toList()
+              : null,
+    );
+  }
 
   Map<String, dynamic> toJson() => {
-        'username': username,
-        'password': password,
-        'email': email,
-        'role': role,
-        'fullName': fullName,
-        // Do NOT send id, createdAt, updatedAt, lastLogin, isActive to server
-      };
+    'username': username,
+    'password': password,
+    'email': email,
+    'role': role,
+    'fullName': fullName,
+    // Do NOT send id, createdAt, updatedAt, lastLogin, isActive to server
+  };
 }
 
 class CelebrityUser extends User {
@@ -120,17 +136,88 @@ class CelebrityUser extends User {
     required this.controversyMedia,
     required this.fashionStyle,
   }) : super(
-          id: id,
-          username: username,
-          password: password,
-          email: email,
-          role: role,
-          fullName: fullName,
-          profileImageUrl: profileImageUrl,
-          createdAt: createdAt,
-          updatedAt: updatedAt,
-          lastLogin: lastLogin,
-          isActive: isActive,
-          postsList: postsList,
-        );
+         id: id,
+         username: username,
+         password: password,
+         email: email,
+         role: role,
+         fullName: fullName,
+         profileImageUrl: profileImageUrl,
+         createdAt: createdAt,
+         updatedAt: updatedAt,
+         lastLogin: lastLogin,
+         isActive: isActive,
+         postsList: postsList,
+       );
+
+  factory CelebrityUser.fromJson(Map<String, dynamic> json) {
+    return CelebrityUser(
+      id: json['id'] ?? json['userId'],
+      username: json['username'] ?? '',
+      password: json['password'] ?? '',
+      email: json['email'] ?? '',
+      role: json['role'] ?? 'USER',
+      fullName: json['fullName'] ?? json['username'] ?? '',
+      profileImageUrl: json['profileImageUrl'] as String?,
+      createdAt:
+          json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
+      updatedAt:
+          json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
+      lastLogin:
+          json['lastLogin'] != null ? DateTime.parse(json['lastLogin']) : null,
+      isActive: json['isActive'] ?? true,
+      occupation: json['occupation'] ?? '',
+      nationality: json['nationality'] ?? '',
+      bio: json['bio'] ?? '',
+      website: json['website'] ?? '',
+      followers: json['followers'] ?? 0,
+      posts: json['posts'] ?? 0,
+      postsList:
+          json['postsList'] != null
+              ? (json['postsList'] as List)
+                  .map((e) => Post.fromJson(e))
+                  .toList()
+              : [],
+      netWorth: json['netWorth'] ?? '',
+      careerEntries:
+          (json['careerEntries'] ?? {})
+              .cast<String, List<Map<String, String>>>(),
+      wealthEntries:
+          (json['wealthEntries'] ?? {})
+              .cast<String, List<Map<String, String>>>(),
+      zodiacSign: json['zodiacSign'] ?? '',
+      familyMembers:
+          (json['familyMembers'] ?? []) as List<Map<String, dynamic>>,
+      relationships:
+          (json['relationships'] ?? []) is List
+              ? List<String>.from(json['relationships'])
+              : [],
+      educationEntries:
+          (json['educationEntries'] ?? []) is List
+              ? List<Map<String, String>>.from(json['educationEntries'])
+              : [],
+      hobbies: (json['hobbies'] ?? []) as List<Map<String, dynamic>>,
+      diet: json['diet'] ?? '',
+      spirituality: json['spirituality'] ?? '',
+      involvedCauses:
+          (json['involvedCauses'] ?? []) is List
+              ? List<Map<String, String>>.from(json['involvedCauses'])
+              : [],
+      pets: (json['pets'] ?? []) is List ? List<String>.from(json['pets']) : [],
+      tattoos:
+          (json['tattoos'] ?? []) is List
+              ? List<String>.from(json['tattoos'])
+              : [],
+      favouritePlaces:
+          (json['favouritePlaces'] ?? []) as List<Map<String, dynamic>>,
+      talents: (json['talents'] ?? []) as List<Map<String, dynamic>>,
+      socials: (json['socials'] ?? []) as List<Map<String, dynamic>>,
+      publicImageDescription: json['publicImageDescription'] ?? '',
+      controversyMedia:
+          (json['controversyMedia'] ?? []) as List<Map<String, dynamic>>,
+      fashionStyle:
+          (json['fashionStyle'] ?? {})
+              .cast<String, List<Map<String, dynamic>>>(),
+    );
+  }
 }

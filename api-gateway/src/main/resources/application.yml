@@ -124,4 +124,4 @@ logging:
     reactor.netty.http.client: DEBUG 
 
 jwt:
-  secret: ${JWT_SECRET:your-256-bit-secret-key-here-minimum-32-characters} 
+  secret: 8y/B?E(H+MbQeThWmZq4t6w9z$C&F)J@NcRfUjXn2r5u8x/A%D*G-KaPdSgVkYp3 

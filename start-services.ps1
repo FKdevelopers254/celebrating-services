@@ -36,22 +36,22 @@ Start-Sleep -Seconds 30
 
 # Start Config Server
 Write-Host "Starting Config Server..."
-Start-Process powershell -ArgumentList "cd config-server; mvn spring-boot:run"
+Start-Process powershell -ArgumentList "cd config-server; ./gradlew bootRun"
 Start-Sleep -Seconds 20
 
 # Start Service Registry
 Write-Host "Starting Service Registry..."
-Start-Process powershell -ArgumentList "cd service-registry; mvn spring-boot:run"
+Start-Process powershell -ArgumentList "cd service-registry; ./gradlew bootRun"
 Start-Sleep -Seconds 20
 
 # Start Auth Service
 Write-Host "Starting Auth Service..."
-Start-Process powershell -ArgumentList "cd auth-service; mvn spring-boot:run"
+Start-Process powershell -ArgumentList "cd auth-service; ./gradlew bootRun"
 Start-Sleep -Seconds 20
 
 # Start API Gateway
 Write-Host "Starting API Gateway..."
-Start-Process powershell -ArgumentList "cd api-gateway; mvn spring-boot:run"
+Start-Process powershell -ArgumentList "cd api-gateway; ./gradlew bootRun"
 Start-Sleep -Seconds 20
 
 # Start other services
@@ -69,7 +69,7 @@ $services = @(
 
 foreach ($service in $services) {
     Write-Host "Starting $service..."
-    Start-Process powershell -ArgumentList "cd $service; mvn spring-boot:run"
+    Start-Process powershell -ArgumentList "cd $service; ./gradlew bootRun"
     Start-Sleep -Seconds 10
 }
 

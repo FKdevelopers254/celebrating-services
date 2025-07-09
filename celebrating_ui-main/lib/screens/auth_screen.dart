@@ -6,11 +6,13 @@ import '../services/user_service.dart';
 import '../app_state.dart';
 import '../models/user.dart';
 import '../l10n/supported_languages.dart';
+import 'package:jwt_decode/jwt_decode.dart';
 
 import '../widgets/app_buttons.dart';
 import '../widgets/app_dropdown.dart';
 import '../widgets/app_text_fields.dart';
 import '../widgets/error_message.dart';
+import '../widgets/success_message.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -43,6 +45,7 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _agreeToTerms = false;
 
   String? errorMessage; // For general/backend errors
+  String? successMessage; // For success messages
   bool isSubmitting = false;
 
   final PageController _pageController = PageController();
@@ -61,12 +64,16 @@ class _AuthScreenState extends State<AuthScreen> {
     'Sep',
     'Oct',
     'Nov',
-    'Dec'
+    'Dec',
   ];
-  final List<String> _days =
-      List.generate(31, (index) => (index + 1).toString());
-  final List<String> _years =
-      List.generate(100, (index) => (DateTime.now().year - index).toString());
+  final List<String> _days = List.generate(
+    31,
+    (index) => (index + 1).toString(),
+  );
+  final List<String> _years = List.generate(
+    100,
+    (index) => (DateTime.now().year - index).toString(),
+  );
 
   final List<String> _countries = ['USA', 'Canada', 'UK', 'Kenya', 'Germany'];
   final Map<String, List<String>> _states = {
@@ -97,15 +104,17 @@ class _AuthScreenState extends State<AuthScreen> {
     );
     setState(() {
       errorMessage = null;
+      successMessage = null;
     });
   }
 
   void _submitLogin() async {
-    Navigator.pushReplacementNamed(context, '/onboarding');
+    // Navigator.pushReplacementNamed(context, '/onboarding');
     if (!_formKeyLogin.currentState!.validate()) {
       setState(() {
         isSubmitting = false;
-        errorMessage = null;
+        errorMessage = 'Invalid form data';
+        successMessage = null;
       });
       return;
     }
@@ -113,20 +122,36 @@ class _AuthScreenState extends State<AuthScreen> {
     setState(() {
       isSubmitting = true;
       errorMessage = null;
+      successMessage = null;
     });
     try {
-      final token = await UserService.login(_loginUsername, _loginPassword);
-      // Save token for future API calls (e.g., using Provider or SharedPreferences)
+      final loginResp = await UserService.login(_loginUsername, _loginPassword);
+      final token = loginResp['accessToken'] as String?;
+      final refreshToken = loginResp['refreshToken'] as String?;
+      final userId = loginResp['userId']?.toString();
+      final email = loginResp['email'] as String?;
+      if (token == null || userId == null)
+        throw Exception('Login failed: missing token or userId');
+      Provider.of<AppState>(context, listen: false).jwtToken = token;
+      Provider.of<AppState>(context, listen: false).refreshToken = refreshToken;
+      Provider.of<AppState>(context, listen: false).userId = userId;
+      Provider.of<AppState>(context, listen: false).email = email;
       // Navigate to the next screen or show success
-      // Navigator.pushReplacementNamed(context, '/feed');
+      //Navigator.pushReplacementNamed(context, '/feed');
       setState(() {
         isSubmitting = false;
-        errorMessage = null;
+        successMessage = 'Login successful! Redirecting to feed...';
+      });
+      Future.delayed(const Duration(seconds: 2), () {
+        setState(() {
+          successMessage = null;
+        });
+        Navigator.pushReplacementNamed(context, '/feed');
       });
     } catch (e) {
       setState(() {
         isSubmitting = false;
-        errorMessage = e.toString().replaceFirst('Exception: ', '');
+        errorMessage = e is String ? e : e.toString();
       });
     }
   }
@@ -134,6 +159,7 @@ class _AuthScreenState extends State<AuthScreen> {
   void _submitRegister() async {
     setState(() {
       errorMessage = null;
+      successMessage = null;
       isSubmitting = false;
     });
     if (!_formKeyRegister.currentState!.validate()) {
@@ -150,7 +176,7 @@ class _AuthScreenState extends State<AuthScreen> {
       isSubmitting = true;
     });
     try {
-      final user = await UserService.register(
+      final registerResp = await UserService.register(
         User(
           username: _registerUsername!,
           password: _registerPassword!,
@@ -159,11 +185,17 @@ class _AuthScreenState extends State<AuthScreen> {
           fullName: _registerFullName!,
         ),
       );
-      // Registration successful, navigate to login or show success
-      // _navigateToPage(0);
       setState(() {
         isSubmitting = false;
         errorMessage = null;
+        successMessage =
+            'Registration successful! Please sign in with your credentials.';
+      });
+      Future.delayed(const Duration(seconds: 2), () {
+        setState(() {
+          successMessage = null;
+        });
+        _navigateToPage(0);
       });
     } catch (e) {
       setState(() {
@@ -173,33 +205,69 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
-  // Helper to show error at the top of the screen (like a banner)
-  Widget _buildTopErrorBanner() {
-    if (errorMessage == null) return const SizedBox.shrink();
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFF5C7C),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.error_outline, color: Colors.white),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              errorMessage!,
-              style: const TextStyle(
+  // Helper to show error or success message at the top of the screen (like a banner)
+  Widget _buildTopMessageBanner() {
+    if (errorMessage != null &&
+        errorMessage is String &&
+        errorMessage!.isNotEmpty) {
+      return Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFF5C7C),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                errorMessage!,
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 15,
-                  fontWeight: FontWeight.w500),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ),
-          ),
-        ],
-      ),
-    );
+          ],
+        ),
+      );
+    }
+
+    if (successMessage != null &&
+        successMessage is String &&
+        successMessage!.isNotEmpty) {
+      return Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+        decoration: BoxDecoration(
+          color: Colors.green,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.check_circle_outline, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                successMessage!,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
   }
 
   Widget _buildLoginForm() {
@@ -210,14 +278,13 @@ class _AuthScreenState extends State<AuthScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _buildTopErrorBanner(),
-            if (errorMessage != null) ErrorMessageBox(message: errorMessage!),
+            _buildTopMessageBanner(),
             AppTextFormField(
               labelText: 'Email or Username',
               icon: Icons.person_outline,
               onSaved: (v) => _loginUsername = v ?? '',
-              validator: (v) =>
-                  v == null || v.isEmpty ? 'Username required' : null,
+              validator:
+                  (v) => v == null || v.isEmpty ? 'Username required' : null,
             ),
             const SizedBox(height: 16),
             AppTextFormField(
@@ -225,8 +292,8 @@ class _AuthScreenState extends State<AuthScreen> {
               icon: Icons.lock_outline,
               isPassword: true,
               onSaved: (v) => _loginPassword = v ?? '',
-              validator: (v) =>
-                  v == null || v.isEmpty ? 'Password required' : null,
+              validator:
+                  (v) => v == null || v.isEmpty ? 'Password required' : null,
             ),
             const SizedBox(height: 24),
             AppButton(
@@ -256,14 +323,13 @@ class _AuthScreenState extends State<AuthScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildTopErrorBanner(),
-            if (errorMessage != null) ErrorMessageBox(message: errorMessage!),
+            _buildTopMessageBanner(),
             AppTextFormField(
               labelText: 'Full Name',
               icon: Icons.person_outline,
               onSaved: (v) => _registerFullName = v,
-              validator: (v) =>
-                  v == null || v.isEmpty ? 'Full name required' : null,
+              validator:
+                  (v) => v == null || v.isEmpty ? 'Full name required' : null,
             ),
             const SizedBox(height: 16),
             AppTextFormField(
@@ -271,16 +337,19 @@ class _AuthScreenState extends State<AuthScreen> {
               icon: Icons.email_outlined,
               keyboardType: TextInputType.emailAddress,
               onSaved: (v) => _registerEmail = v,
-              validator: (v) =>
-                  v == null || !v.contains('@') ? 'Enter a valid email' : null,
+              validator:
+                  (v) =>
+                      v == null || !v.contains('@')
+                          ? 'Enter a valid email'
+                          : null,
             ),
             const SizedBox(height: 16),
             AppTextFormField(
               labelText: 'Username',
               icon: Icons.person_outline,
               onSaved: (v) => _registerUsername = v,
-              validator: (v) =>
-                  v == null || v.isEmpty ? 'Username required' : null,
+              validator:
+                  (v) => v == null || v.isEmpty ? 'Username required' : null,
             ),
             const SizedBox(height: 16),
             AppTextFormField(
@@ -288,9 +357,11 @@ class _AuthScreenState extends State<AuthScreen> {
               icon: Icons.lock_outline,
               isPassword: true,
               onSaved: (v) => _registerPassword = v,
-              validator: (v) => v == null || v.length < 6
-                  ? 'Password must be at least 6 characters'
-                  : null,
+              validator:
+                  (v) =>
+                      v == null || v.length < 6
+                          ? 'Password must be at least 6 characters'
+                          : null,
             ),
             const SizedBox(height: 16),
             AppTextFormField(
@@ -298,8 +369,8 @@ class _AuthScreenState extends State<AuthScreen> {
               icon: Icons.lock_outline,
               isPassword: true,
               onSaved: (v) => _registerConfirmPassword = v,
-              validator: (v) =>
-                  v == null || v.isEmpty ? 'Confirm password' : null,
+              validator:
+                  (v) => v == null || v.isEmpty ? 'Confirm password' : null,
             ),
             const SizedBox(height: 16),
             AppTextFormField(
@@ -341,7 +412,7 @@ class _AuthScreenState extends State<AuthScreen> {
     final currentLocale = appState.locale;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Celebrating'),
+        title: Image.asset('assets/images/celebratinglogo.png', height: 70),
         actions: [
           DropdownButtonHideUnderline(
             child: DropdownButton<SupportedLanguage>(
@@ -350,12 +421,15 @@ class _AuthScreenState extends State<AuthScreen> {
                 (l) => l.code == currentLocale?.languageCode,
                 orElse: () => supportedLanguages[0],
               ),
-              items: supportedLanguages
-                  .map((lang) => DropdownMenuItem(
-                        value: lang,
-                        child: Text('${lang.flag} ${lang.label}'),
-                      ))
-                  .toList(),
+              items:
+                  supportedLanguages
+                      .map(
+                        (lang) => DropdownMenuItem(
+                          value: lang,
+                          child: Text('${lang.flag} ${lang.label}'),
+                        ),
+                      )
+                      .toList(),
               onChanged: (lang) {
                 if (lang != null) appState.setLocale(Locale(lang.code));
               },
@@ -386,10 +460,7 @@ class _AuthScreenState extends State<AuthScreen> {
                   // but for now, we'll keep a consistent header.
                 },
                 physics: const NeverScrollableScrollPhysics(),
-                children: [
-                  _buildLoginForm(),
-                  _buildRegisterForm(),
-                ],
+                children: [_buildLoginForm(), _buildRegisterForm()],
               ),
             ),
           ],

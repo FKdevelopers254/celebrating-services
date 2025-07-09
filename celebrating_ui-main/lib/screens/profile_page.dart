@@ -1,5 +1,10 @@
 import '../widgets/slideup_dialog.dart';
 import 'package:flutter/material.dart';
+import 'package:jwt_decode/jwt_decode.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:image_picker/image_picker.dart';
+import 'dart:typed_data';
 
 import '../models/post.dart';
 import '../models/user.dart';
@@ -21,9 +26,11 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  CelebrityUser? user;
+  User? user;
   List<Post> posts = [];
   bool isLoading = true;
+  Uint8List? _newAvatarBytes;
+  final ImagePicker _picker = ImagePicker();
 
   //TODO: Implement following code block when fetching logged in user
   /*** void fetchProfileUser() async {
@@ -44,21 +51,102 @@ class _ProfilePageState extends State<ProfilePage>
   void fetchProfileUser() async {
     final appState = Provider.of<AppState>(context, listen: false);
     final token = appState.jwtToken;
+    final userId = appState.userId;
     if (token == null) {
       // Handle missing token (e.g., redirect to login or show error)
-      return;
-    }
-    final fetchedUser = await UserService.fetchUser('456', token: token);
-    if (fetchedUser is CelebrityUser) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You are not logged in. Please log in.')),
+      );
       setState(() {
-        user = fetchedUser;
-        posts = fetchedUser.postsList ?? [];
         isLoading = false;
       });
-      print('Celebrity user: ${fetchedUser.fullName}');
-      print('Occupation: ${fetchedUser.occupation}');
-      print('Followers: ${fetchedUser.followers}');
-      print('PostsList: ${fetchedUser.postsList}');
+      return;
+    }
+    User? fetchedUser;
+    int retryCount = 0;
+    const maxRetries = 3;
+    Duration retryDelay = const Duration(seconds: 1);
+    while (retryCount < maxRetries) {
+      try {
+        if (userId != null && userId.isNotEmpty) {
+          // Use userId (UUID) if available
+          fetchedUser = await UserService.fetchUser(
+            userId,
+            token: token,
+            context: context,
+          );
+        } else {
+          // Fallback: decode JWT and use sub (username)
+          final payload = Jwt.parseJwt(token);
+          final username = payload['sub'];
+          if (username == null) throw Exception('No username in token');
+          fetchedUser = await UserService.fetchUserByUsername(
+            username,
+            token: token,
+            context: context,
+          );
+        }
+        break; // Success, exit retry loop
+      } catch (e) {
+        debugPrint('Error fetching user profile: $e');
+        if (e.toString().contains('404')) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('User not found (404).')),
+          );
+          setState(() {
+            isLoading = false;
+          });
+          return;
+        } else if (e.toString().contains('403')) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Access forbidden (403).')),
+          );
+          setState(() {
+            isLoading = false;
+          });
+          return;
+        } else if (e.toString().contains('Failed host lookup') ||
+            e.toString().contains('SocketException') ||
+            e.toString().contains('Connection refused')) {
+          // Service downtime/network error, retry with exponential backoff
+          retryCount++;
+          if (retryCount >= maxRetries) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Service unavailable. Please try again later.'),
+              ),
+            );
+            setState(() {
+              isLoading = false;
+            });
+            return;
+          }
+          await Future.delayed(retryDelay);
+          retryDelay *= 2;
+        } else {
+          // Other errors
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error: $e')));
+          setState(() {
+            isLoading = false;
+          });
+          return;
+        }
+      }
+    }
+    if (fetchedUser != null) {
+      setState(() {
+        user = fetchedUser;
+        posts = fetchedUser?.postsList ?? [];
+        isLoading = false;
+      });
+      if (fetchedUser is CelebrityUser) {
+        debugPrint('Celebrity user: ${fetchedUser.fullName}');
+        debugPrint('Occupation: ${fetchedUser.occupation}');
+        debugPrint('Followers: ${fetchedUser.followers}');
+        debugPrint('PostsList: ${fetchedUser.postsList}');
+      }
     }
   }
 
@@ -134,18 +222,19 @@ class _ProfilePageState extends State<ProfilePage>
 
     return Scaffold(
       appBar: _buildAppBar(defaultTextColor),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildProfileHeader(defaultTextColor, secondaryTextColor),
-                _buildActionButtons(),
-                _buildStatsRow(defaultTextColor, secondaryTextColor),
-                _buildTabBar(isDark),
-                Expanded(child: _buildTabs()),
-              ],
-            ),
+      body:
+          isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildProfileHeader(defaultTextColor, secondaryTextColor),
+                  _buildActionButtons(),
+                  _buildStatsRow(defaultTextColor, secondaryTextColor),
+                  _buildTabBar(isDark),
+                  Expanded(child: _buildTabs()),
+                ],
+              ),
     );
   }
 
@@ -169,6 +258,10 @@ class _ProfilePageState extends State<ProfilePage>
   }
 
   Widget _buildProfileHeader(Color defaultTextColor, Color secondaryTextColor) {
+    if (user == null) {
+      return const Center(child: Text('User profile could not be loaded.'));
+    }
+    final isCelebrity = user is CelebrityUser;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -188,30 +281,29 @@ class _ProfilePageState extends State<ProfilePage>
                 ),
                 Text(
                   user!.username,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: secondaryTextColor,
+                  style: TextStyle(fontSize: 16, color: secondaryTextColor),
+                ),
+                const SizedBox(height: 8),
+                if (isCelebrity && user is CelebrityUser) ...[
+                  Text(
+                    (user as CelebrityUser).occupation,
+                    style: TextStyle(color: defaultTextColor),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  user!.occupation,
-                  style: TextStyle(color: defaultTextColor),
-                ),
-                Text(
-                  user!.nationality,
-                  style: TextStyle(color: secondaryTextColor),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: List.generate(5, (index) {
-                    return Icon(
-                      index < 4 ? Icons.star : Icons.star_border,
-                      color: Colors.orange,
-                      size: 20,
-                    );
-                  }),
-                ),
+                  Text(
+                    (user as CelebrityUser).nationality,
+                    style: TextStyle(color: secondaryTextColor),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: List.generate(5, (index) {
+                      return Icon(
+                        index < 4 ? Icons.star : Icons.star_border,
+                        color: Colors.orange,
+                        size: 20,
+                      );
+                    }),
+                  ),
+                ],
               ],
             ),
             const SizedBox(width: 10),
@@ -223,56 +315,96 @@ class _ProfilePageState extends State<ProfilePage>
                   Positioned(
                     top: 0,
                     left: 0,
-                    child: ProfileAvatar(
-                      radius: 60,
-                      imageUrl: user!.profileImageUrl,
-                    ),
-                  ),
-                  Positioned(
-                    top: -2,
-                    right: -2,
-                    child: const Icon(Icons.verified,
-                        color: Colors.orange, size: 30),
-                  ),
-                  Positioned(
-                    bottom: 2,
-                    left: 0,
-                    right: 0,
-                    child: Center(
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
+                    child: GestureDetector(
+                      onTap: _pickAndUploadAvatar,
+                      child: Stack(
                         children: [
-                          Icon(Icons.tiktok,
-                              size: 30, color: secondaryTextColor),
-                          const SizedBox(width: 12),
-                          Icon(Icons.camera_alt_outlined,
-                              size: 30, color: secondaryTextColor),
-                          const SizedBox(width: 12),
-                          Icon(Icons.tiktok,
-                              size: 30, color: secondaryTextColor),
+                          ProfileAvatar(
+                            radius: 60,
+                            imageUrl: user!.profileImageUrl,
+                          ),
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: CircleAvatar(
+                              radius: 18,
+                              backgroundColor: Colors.white,
+                              child: Icon(Icons.edit, color: Colors.blue),
+                            ),
+                          ),
                         ],
                       ),
                     ),
                   ),
+                  if (isCelebrity)
+                    Positioned(
+                      top: -2,
+                      right: -2,
+                      child: const Icon(
+                        Icons.verified,
+                        color: Colors.orange,
+                        size: 30,
+                      ),
+                    ),
+                  if (isCelebrity)
+                    Positioned(
+                      bottom: 2,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.tiktok,
+                              size: 30,
+                              color: secondaryTextColor,
+                            ),
+                            const SizedBox(width: 12),
+                            Icon(
+                              Icons.camera_alt_outlined,
+                              size: 30,
+                              color: secondaryTextColor,
+                            ),
+                            const SizedBox(width: 12),
+                            Icon(
+                              Icons.tiktok,
+                              size: 30,
+                              color: secondaryTextColor,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
+            IconButton(
+              icon: const Icon(Icons.edit, color: Colors.blue),
+              onPressed: _showEditProfileDialog,
+            ),
           ],
         ),
-        Text(
-          user!.bio,
-          style: TextStyle(color: defaultTextColor),
-        ),
-        GestureDetector(
-          onTap: () {
-            print('Website link tapped: ${user!.website}');
-          },
-          child: Text(
-            user!.website,
-            style: const TextStyle(
-                color: Colors.blue, decoration: TextDecoration.underline),
+        if (isCelebrity)
+          Text(
+            (user as CelebrityUser).bio,
+            style: TextStyle(color: defaultTextColor),
           ),
-        ),
+        if (isCelebrity)
+          GestureDetector(
+            onTap: () {
+              print(
+                'Website link tapped: \\${(user as CelebrityUser).website}',
+              );
+            },
+            child: Text(
+              (user as CelebrityUser).website,
+              style: const TextStyle(
+                color: Colors.blue,
+                decoration: TextDecoration.underline,
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -315,18 +447,15 @@ class _ProfilePageState extends State<ProfilePage>
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Text(
-            user != null && user!.followers != null
-                ? '${formatCount(user!.followers)} '
+            user is CelebrityUser && (user as CelebrityUser).followers != null
+                ? '${formatCount((user as CelebrityUser).followers)} '
                 : '0 ',
             style: TextStyle(
               fontWeight: FontWeight.bold,
               color: defaultTextColor,
             ),
           ),
-          Text(
-            'Followers',
-            style: TextStyle(color: secondaryTextColor),
-          ),
+          Text('Followers', style: TextStyle(color: secondaryTextColor)),
           const SizedBox(width: 20),
           Text(
             user != null && user!.postsList != null
@@ -337,10 +466,7 @@ class _ProfilePageState extends State<ProfilePage>
               color: defaultTextColor,
             ),
           ),
-          Text(
-            'Posts',
-            style: TextStyle(color: secondaryTextColor),
-          ),
+          Text('Posts', style: TextStyle(color: secondaryTextColor)),
         ],
       ),
     );
@@ -355,8 +481,10 @@ class _ProfilePageState extends State<ProfilePage>
       unselectedLabelColor:
           isDark ? Colors.grey.shade500 : Colors.grey.shade600,
       labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-      unselectedLabelStyle:
-          const TextStyle(fontWeight: FontWeight.normal, fontSize: 16),
+      unselectedLabelStyle: const TextStyle(
+        fontWeight: FontWeight.normal,
+        fontSize: 16,
+      ),
       indicator: UnderlineTabIndicator(
         borderSide: BorderSide(
           width: 3.0,
@@ -385,7 +513,7 @@ class _ProfilePageState extends State<ProfilePage>
           _buildCareerTab(),
           _buildWealthTab(),
           _buildPersonalTab(),
-          _buildPublicPersonaTab()
+          _buildPublicPersonaTab(),
         ],
       ),
     );
@@ -413,133 +541,170 @@ class _ProfilePageState extends State<ProfilePage>
         celeb.careerEntries;
 
     return ListView(
-      children: careerData.entries
-          .where((entry) => entry.value.isNotEmpty)
-          .map((entry) {
-        final category = entry.key;
-        final items = entry.value;
-        final icon = _careerCategoryIcons[category] ?? Icons.info_outline;
+      children:
+          careerData.entries.where((entry) => entry.value.isNotEmpty).map((
+            entry,
+          ) {
+            final category = entry.key;
+            final items = entry.value;
+            final icon = _careerCategoryIcons[category] ?? Icons.info_outline;
 
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(icon, size: 32, color: iconColor),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: items.map((item) {
-                    if (category == 'Awards') {
-                      final title = item['title'];
-                      final award = item['award'];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 2.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (title != null)
-                              Text(title,
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                      color: defaultTextColor)),
-                            if (award != null)
-                              Text(award,
-                                  style: TextStyle(
-                                      fontSize: 15,
-                                      color:
-                                          defaultTextColor.withOpacity(0.8))),
-                          ],
-                        ),
-                      );
-                    } else if (category == 'Collaborations') {
-                      final title = item['title'];
-                      final subtitle = item['subtitle'];
-                      final type = item['type'];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 2.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (title != null)
-                              Text(title,
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                      color: defaultTextColor)),
-                            if (subtitle != null)
-                              Text(subtitle,
-                                  style: TextStyle(
-                                      fontSize: 15,
-                                      color:
-                                          defaultTextColor.withOpacity(0.8))),
-                            if (type != null)
-                              Text(type,
-                                  style: TextStyle(
-                                      fontSize: 13,
-                                      color:
-                                          defaultTextColor.withOpacity(0.7))),
-                          ],
-                        ),
-                      );
-                    } else if (category == 'Debut Work') {
-                      final title = item['title'];
-                      final subtitle = item['subtitle'];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (title != null)
-                              Text(title,
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                      color: defaultTextColor)),
-                            if (subtitle != null) ...[
-                              const SizedBox(height: 2),
-                              Text(subtitle,
-                                  style: TextStyle(
-                                      fontSize: 15,
-                                      color:
-                                          defaultTextColor.withOpacity(0.8))),
-                            ],
-                          ],
-                        ),
-                      );
-                    } else {
-                      final title = item['title'];
-                      final subtitle = item['subtitle'];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 2.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (title != null)
-                              Text(title,
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                      color: defaultTextColor)),
-                            if (subtitle != null)
-                              Text(subtitle,
-                                  style: TextStyle(
-                                      fontSize: 15,
-                                      color:
-                                          defaultTextColor.withOpacity(0.8))),
-                          ],
-                        ),
-                      );
-                    }
-                  }).toList(),
-                ),
+            return Padding(
+              padding: const EdgeInsets.symmetric(
+                vertical: 8.0,
+                horizontal: 16.0,
               ),
-            ],
-          ),
-        );
-      }).toList(),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(icon, size: 32, color: iconColor),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children:
+                          items.map((item) {
+                            if (category == 'Awards') {
+                              final title = item['title'];
+                              final award = item['award'];
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 2.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (title != null)
+                                      Text(
+                                        title,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                          color: defaultTextColor,
+                                        ),
+                                      ),
+                                    if (award != null)
+                                      Text(
+                                        award,
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          color: defaultTextColor.withOpacity(
+                                            0.8,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              );
+                            } else if (category == 'Collaborations') {
+                              final title = item['title'];
+                              final subtitle = item['subtitle'];
+                              final type = item['type'];
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 2.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (title != null)
+                                      Text(
+                                        title,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                          color: defaultTextColor,
+                                        ),
+                                      ),
+                                    if (subtitle != null)
+                                      Text(
+                                        subtitle,
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          color: defaultTextColor.withOpacity(
+                                            0.8,
+                                          ),
+                                        ),
+                                      ),
+                                    if (type != null)
+                                      Text(
+                                        type,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: defaultTextColor.withOpacity(
+                                            0.7,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              );
+                            } else if (category == 'Debut Work') {
+                              final title = item['title'];
+                              final subtitle = item['subtitle'];
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 8.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (title != null)
+                                      Text(
+                                        title,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                          color: defaultTextColor,
+                                        ),
+                                      ),
+                                    if (subtitle != null) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        subtitle,
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          color: defaultTextColor.withOpacity(
+                                            0.8,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              );
+                            } else {
+                              final title = item['title'];
+                              final subtitle = item['subtitle'];
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 2.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (title != null)
+                                      Text(
+                                        title,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                          color: defaultTextColor,
+                                        ),
+                                      ),
+                                    if (subtitle != null)
+                                      Text(
+                                        subtitle,
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          color: defaultTextColor.withOpacity(
+                                            0.8,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              );
+                            }
+                          }).toList(),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
     );
   }
 
@@ -548,6 +713,9 @@ class _ProfilePageState extends State<ProfilePage>
     final defaultTextColor = isDark ? Colors.white : Colors.black;
     final secondaryTextColor =
         isDark ? Colors.grey.shade400 : Colors.grey.shade600;
+    if (user == null || user is! CelebrityUser) {
+      return const Center(child: Text("No wealth data available."));
+    }
     final celeb = user as CelebrityUser;
     final Map<String, List<Map<String, String>>> wealthData =
         celeb.wealthEntries;
@@ -569,10 +737,7 @@ class _ProfilePageState extends State<ProfilePage>
                 ),
                 Text(
                   celeb.netWorth,
-                  style: TextStyle(
-                    fontSize: 18,
-                    color: secondaryTextColor,
-                  ),
+                  style: TextStyle(fontSize: 18, color: secondaryTextColor),
                 ),
               ],
             ),
@@ -626,6 +791,9 @@ class _ProfilePageState extends State<ProfilePage>
     final defaultTextColor = isDark ? Colors.white : Colors.black;
     final secondaryTextColor =
         isDark ? Colors.grey.shade400 : Colors.grey.shade600;
+    if (user == null || user is! CelebrityUser) {
+      return const Center(child: Text("No personal data available."));
+    }
     final celeb = user as CelebrityUser;
     return SingleChildScrollView(
       child: Padding(
@@ -669,7 +837,8 @@ class _ProfilePageState extends State<ProfilePage>
                           context: context,
                           userName: member['name'] ?? '',
                           userProfession: member['relation'] ?? '',
-                          userProfileImageUrl: member['imageUrl'] ??
+                          userProfileImageUrl:
+                              member['imageUrl'] ??
                               'https://via.placeholder.com/150',
                           onViewProfile: () {
                             // You can add navigation or more logic here
@@ -681,14 +850,17 @@ class _ProfilePageState extends State<ProfilePage>
                         children: [
                           ProfileAvatar(
                             radius: 30,
-                            imageUrl: member['imageUrl'] ??
+                            imageUrl:
+                                member['imageUrl'] ??
                                 'https://via.placeholder.com/150',
                           ),
                           const SizedBox(height: 5),
                           Text(
                             member['name'] ?? '',
                             style: TextStyle(
-                                fontSize: 12, color: defaultTextColor),
+                              fontSize: 12,
+                              color: defaultTextColor,
+                            ),
                           ),
                         ],
                       ),
@@ -951,20 +1123,27 @@ class _ProfilePageState extends State<ProfilePage>
                 const SizedBox(width: 8),
                 DropdownButton<String>(
                   value: 'Places',
-                  icon: Icon(Icons.keyboard_arrow_down,
-                      color: secondaryTextColor),
+                  icon: Icon(
+                    Icons.keyboard_arrow_down,
+                    color: secondaryTextColor,
+                  ),
                   underline: const SizedBox(),
                   style: TextStyle(color: secondaryTextColor, fontSize: 14),
                   onChanged: (String? newValue) {
                     // Handle dropdown value change
                   },
-                  items: <String>['Places', 'Food', 'Movies', 'Books']
-                      .map<DropdownMenuItem<String>>((String value) {
-                    return DropdownMenuItem<String>(
-                      value: value,
-                      child: Text(value),
-                    );
-                  }).toList(),
+                  items:
+                      <String>[
+                        'Places',
+                        'Food',
+                        'Movies',
+                        'Books',
+                      ].map<DropdownMenuItem<String>>((String value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(value),
+                        );
+                      }).toList(),
                 ),
               ],
             ),
@@ -1030,6 +1209,9 @@ class _ProfilePageState extends State<ProfilePage>
     final secondaryTextColor =
         isDark ? Colors.grey.shade400 : Colors.grey.shade600;
     final appPrimaryColor = Theme.of(context).primaryColor;
+    if (user == null || user is! CelebrityUser) {
+      return const Center(child: Text("No public persona data available."));
+    }
     final celeb = user as CelebrityUser;
 
     // Social icon mapping (for demo, you can expand this)
@@ -1087,11 +1269,7 @@ class _ProfilePageState extends State<ProfilePage>
                           color: color.withOpacity(0.15),
                           shape: BoxShape.circle,
                         ),
-                        child: Icon(
-                          icon,
-                          color: color,
-                          size: 30,
-                        ),
+                        child: Icon(icon, color: color, size: 30),
                       ),
                     ),
                   );
@@ -1112,10 +1290,7 @@ class _ProfilePageState extends State<ProfilePage>
             const SizedBox(height: 10),
             Text(
               celeb.publicImageDescription,
-              style: TextStyle(
-                fontSize: 14,
-                color: defaultTextColor,
-              ),
+              style: TextStyle(fontSize: 14, color: defaultTextColor),
             ),
             const SizedBox(height: 20),
 
@@ -1195,8 +1370,10 @@ class _ProfilePageState extends State<ProfilePage>
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: appPrimaryColor,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 30,
+                    vertical: 15,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(25),
                   ),
@@ -1215,6 +1392,155 @@ class _ProfilePageState extends State<ProfilePage>
         ),
       ),
     );
+  }
+
+  void _showEditProfileDialog() {
+    final nameController = TextEditingController(text: user?.fullName ?? '');
+    final emailController = TextEditingController(text: user?.email ?? '');
+    final bioController = TextEditingController(
+      text: user is CelebrityUser ? (user as CelebrityUser).bio : '',
+    );
+    final websiteController = TextEditingController(
+      text: user is CelebrityUser ? (user as CelebrityUser).website : '',
+    );
+    final isCelebrity = user is CelebrityUser;
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Edit Profile'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameController,
+                    decoration: const InputDecoration(labelText: 'Full Name'),
+                  ),
+                  TextField(
+                    controller: emailController,
+                    decoration: const InputDecoration(labelText: 'Email'),
+                  ),
+                  if (isCelebrity)
+                    TextField(
+                      controller: bioController,
+                      decoration: const InputDecoration(labelText: 'Bio'),
+                    ),
+                  if (isCelebrity)
+                    TextField(
+                      controller: websiteController,
+                      decoration: const InputDecoration(labelText: 'Website'),
+                    ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final appState = Provider.of<AppState>(
+                    context,
+                    listen: false,
+                  );
+                  final token = appState.jwtToken;
+                  if (token == null || user == null) return;
+                  final userId = user!.id?.toString() ?? '';
+                  final updatedData = {
+                    'fullName': nameController.text.trim(),
+                    'email': emailController.text.trim(),
+                  };
+                  if (isCelebrity) {
+                    updatedData['bio'] = bioController.text.trim();
+                    updatedData['website'] = websiteController.text.trim();
+                  }
+                  final url = Uri.parse(
+                    'http://localhost:8080/api/users/$userId',
+                  );
+                  final resp = await http.put(
+                    url,
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': 'Bearer $token',
+                    },
+                    body: jsonEncode(updatedData),
+                  );
+                  if (resp.statusCode == 200) {
+                    Navigator.pop(context);
+                    fetchProfileUser();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Profile updated!')),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Failed to update profile.')),
+                    );
+                  }
+                },
+                child: const Text('Save'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  Future<void> _pickAndUploadAvatar() async {
+    final picked = await _picker.pickImage(source: ImageSource.gallery);
+    if (picked == null) return;
+    final bytes = await picked.readAsBytes();
+    setState(() {
+      _newAvatarBytes = bytes;
+    });
+    final appState = Provider.of<AppState>(context, listen: false);
+    final token = appState.jwtToken;
+    if (token == null || user == null) return;
+    // Upload image to /api/posts/upload-media (reuse post image upload)
+    var uploadUri = Uri.parse('http://localhost:8080/api/posts/upload-media');
+    var uploadRequest =
+        http.MultipartRequest('POST', uploadUri)
+          ..headers['Authorization'] = 'Bearer $token'
+          ..files.add(
+            http.MultipartFile.fromBytes(
+              'media',
+              bytes,
+              filename: 'avatar.jpg',
+            ),
+          );
+    var uploadResponse = await uploadRequest.send();
+    if (uploadResponse.statusCode == 200) {
+      final uploadRespStr = await uploadResponse.stream.bytesToString();
+      final uploadRespJson = jsonDecode(uploadRespStr);
+      final avatarUrl = uploadRespJson['mediaUrl'];
+      if (avatarUrl != null) {
+        // Update user profile with new avatar URL
+        final userId = user!.id?.toString() ?? '';
+        final url = Uri.parse('http://localhost:8080/api/users/$userId');
+        final resp = await http.put(
+          url,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: jsonEncode({'profileImageUrl': avatarUrl}),
+        );
+        if (resp.statusCode == 200) {
+          fetchProfileUser();
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Avatar updated!')));
+        } else {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Failed to update avatar.')));
+        }
+      }
+    } else {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to upload avatar.')));
+    }
   }
 }
 
@@ -1240,11 +1566,13 @@ class ProfilePreviewModalContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color _defaultTextColor = defaultTextColor ??
+    final Color _defaultTextColor =
+        defaultTextColor ??
         (Theme.of(context).brightness == Brightness.dark
             ? Colors.white
             : Colors.black);
-    final Color _secondaryTextColor = secondaryTextColor ??
+    final Color _secondaryTextColor =
+        secondaryTextColor ??
         (Theme.of(context).brightness == Brightness.dark
             ? Colors.grey.shade400
             : Colors.grey.shade600);
@@ -1258,9 +1586,10 @@ class ProfilePreviewModalContent extends StatelessWidget {
         Row(
           children: [
             ProfileAvatar(
-                radius: 30,
-                imageUrl:
-                    userProfileImageUrl ?? 'https://via.placeholder.com/150'),
+              radius: 30,
+              imageUrl:
+                  userProfileImageUrl ?? 'https://via.placeholder.com/150',
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -1282,10 +1611,7 @@ class ProfilePreviewModalContent extends StatelessWidget {
                   ),
                   Text(
                     userProfession,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: _secondaryTextColor,
-                    ),
+                    style: TextStyle(fontSize: 14, color: _secondaryTextColor),
                   ),
                 ],
               ),
@@ -1294,8 +1620,10 @@ class ProfilePreviewModalContent extends StatelessWidget {
               onPressed: onViewProfile ?? () {},
               style: ElevatedButton.styleFrom(
                 backgroundColor: _appPrimaryColor,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),
@@ -1307,9 +1635,7 @@ class ProfilePreviewModalContent extends StatelessWidget {
             ),
           ],
         ),
-        const Expanded(
-          child: SizedBox(),
-        ),
+        const Expanded(child: SizedBox()),
         Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
@@ -1351,7 +1677,8 @@ class _ControversyCarouselState extends State<_ControversyCarousel> {
 
   void _goLeft() {
     setState(() {
-      _currentIndex = (_currentIndex - 1 + widget.controversyMedia.length) %
+      _currentIndex =
+          (_currentIndex - 1 + widget.controversyMedia.length) %
           widget.controversyMedia.length;
     });
   }
@@ -1380,21 +1707,28 @@ class _ControversyCarouselState extends State<_ControversyCarousel> {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: widget.defaultTextColor.withOpacity(0.2)),
         ),
-        child: isVideo
-            ? const Center(
-                child:
-                    Icon(Icons.play_circle_fill, size: 50, color: Colors.grey))
-            : ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.network(
-                  url,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => const Icon(
-                      Icons.broken_image,
-                      size: 50,
-                      color: Colors.grey),
+        child:
+            isVideo
+                ? const Center(
+                  child: Icon(
+                    Icons.play_circle_fill,
+                    size: 50,
+                    color: Colors.grey,
+                  ),
+                )
+                : ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.network(
+                    url,
+                    fit: BoxFit.cover,
+                    errorBuilder:
+                        (context, error, stackTrace) => const Icon(
+                          Icons.broken_image,
+                          size: 50,
+                          color: Colors.grey,
+                        ),
+                  ),
                 ),
-              ),
       );
     }
 
@@ -1405,9 +1739,7 @@ class _ControversyCarouselState extends State<_ControversyCarousel> {
         return [
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              buildMediaBox(url, isVideo: isVideo),
-            ],
+            children: [buildMediaBox(url, isVideo: isVideo)],
           ),
         ];
       } else if (media.length == 2) {
@@ -1415,11 +1747,15 @@ class _ControversyCarouselState extends State<_ControversyCarousel> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              buildMediaBox(media[0],
-                  isVideo: media[0].toString().endsWith('.mp4')),
+              buildMediaBox(
+                media[0],
+                isVideo: media[0].toString().endsWith('.mp4'),
+              ),
               SizedBox(width: spacing),
-              buildMediaBox(media[1],
-                  isVideo: media[1].toString().endsWith('.mp4')),
+              buildMediaBox(
+                media[1],
+                isVideo: media[1].toString().endsWith('.mp4'),
+              ),
             ],
           ),
         ];
@@ -1434,11 +1770,15 @@ class _ControversyCarouselState extends State<_ControversyCarousel> {
               Column(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  buildMediaBox(media[0],
-                      isVideo: media[0].toString().endsWith('.mp4')),
+                  buildMediaBox(
+                    media[0],
+                    isVideo: media[0].toString().endsWith('.mp4'),
+                  ),
                   SizedBox(height: spacing),
-                  buildMediaBox(media[1],
-                      isVideo: media[1].toString().endsWith('.mp4')),
+                  buildMediaBox(
+                    media[1],
+                    isVideo: media[1].toString().endsWith('.mp4'),
+                  ),
                 ],
               ),
               SizedBox(width: spacing),
@@ -1446,8 +1786,10 @@ class _ControversyCarouselState extends State<_ControversyCarousel> {
               Container(
                 width: cardWidth,
                 height: cardHeight * 2 + spacing,
-                child: buildMediaBox(media[2],
-                    isVideo: media[2].toString().endsWith('.mp4')),
+                child: buildMediaBox(
+                  media[2],
+                  isVideo: media[2].toString().endsWith('.mp4'),
+                ),
               ),
             ],
           ),
@@ -1462,9 +1804,10 @@ class _ControversyCarouselState extends State<_ControversyCarousel> {
         Text(
           controversy,
           style: TextStyle(
-              fontSize: 14,
-              color: widget.defaultTextColor,
-              fontWeight: FontWeight.w600),
+            fontSize: 14,
+            color: widget.defaultTextColor,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         const SizedBox(height: 8),
         Row(

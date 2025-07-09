@@ -1,5 +1,4 @@
 FROM openjdk:17-jdk-alpine
 WORKDIR /app
-COPY build/libs/post-service-0.0.1-SNAPSHOT.jar app.jar
-EXPOSE 8083
+COPY build/libs/*.jar app.jar
 ENTRYPOINT ["java", "-jar", "app.jar"]

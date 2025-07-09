@@ -9,6 +9,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.ResponseEntity;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.UUID;
 
 import jakarta.validation.Valid;
 
@@ -88,5 +94,20 @@ public class PostController {
     @GetMapping("/{postId}/likes")
     public Flux<Like> getPostLikes(@PathVariable Long postId) {
         return postService.getPostLikes(postId);
+    }
+
+    @PostMapping("/upload-media")
+    public ResponseEntity<?> uploadMedia(@RequestParam("media") MultipartFile file) {
+        try {
+            String uploadDir = System.getProperty("java.io.tmpdir") + "/post-uploads/";
+            Files.createDirectories(Paths.get(uploadDir));
+            String filename = UUID.randomUUID() + "_" + file.getOriginalFilename();
+            Path filePath = Paths.get(uploadDir, filename);
+            Files.write(filePath, file.getBytes());
+            String fileUrl = "/uploads/" + filename;
+            return ResponseEntity.ok().body(java.util.Collections.singletonMap("mediaUrl", fileUrl));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(java.util.Collections.singletonMap("error", "Failed to upload file: " + e.getMessage()));
+        }
     }
 }

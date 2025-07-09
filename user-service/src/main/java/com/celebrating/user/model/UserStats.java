@@ -12,6 +12,7 @@ import java.util.UUID;
 @Table(name = "user_stats")
 public class UserStats {
     @Id
+    @Column(name = "user_id", columnDefinition = "uuid")
     private UUID userId;
 
     @OneToOne(fetch = FetchType.LAZY)

@@ -15,6 +15,7 @@ public class Post {
     private String title;
     private String content;
     private String celebrationType;
+    // List of image/media URLs returned from /api/posts/upload-media
     private List<String> mediaUrls;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

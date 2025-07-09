@@ -5,6 +5,7 @@ import com.celebrating.user.model.CelebrityProfile;
 import com.celebrating.user.model.UserStats;
 import com.celebrating.user.repository.UserRepository;
 import com.celebrating.user.repository.CelebrityProfileRepository;
+import com.celebrating.userservice.kafka.UserEventProducer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +18,7 @@ import java.util.UUID;
 public class UserService {
     private final UserRepository userRepository;
     private final CelebrityProfileRepository celebrityProfileRepository;
+    private final UserEventProducer userEventProducer;
 
     @Transactional(readOnly = true)
     public List<User> getAllCelebrities() {
@@ -52,7 +54,17 @@ public class UserService {
             user.setCelebrityProfile(profile);
         }
 
-        return userRepository.save(user);
+        User savedUser = userRepository.save(user);
+        
+        // Send user created event via Kafka
+        try {
+            userEventProducer.sendUserCreatedEvent(savedUser.getId().toString(), savedUser);
+            System.out.println("User created event sent for user: " + savedUser.getId());
+        } catch (Exception e) {
+            System.err.println("Failed to send user created event: " + e.getMessage());
+        }
+        
+        return savedUser;
     }
 
     @Transactional
@@ -64,7 +76,17 @@ public class UserService {
                 user.setLocation(userDetails.getLocation());
                 user.setProfileImageUrl(userDetails.getProfileImageUrl());
                 user.setPrivate(userDetails.isPrivate());
-                return userRepository.save(user);
+                User updatedUser = userRepository.save(user);
+                
+                // Send user updated event via Kafka
+                try {
+                    userEventProducer.sendUserUpdatedEvent(updatedUser.getId().toString(), updatedUser);
+                    System.out.println("User updated event sent for user: " + updatedUser.getId());
+                } catch (Exception e) {
+                    System.err.println("Failed to send user updated event: " + e.getMessage());
+                }
+                
+                return updatedUser;
             });
     }
 

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  static const Color appYellow = Color(0xFFFCD535);
-  static const Color appDark = Color(0xFF181A20);
-  static const Color appSurfaceDark = Color(0xFF23262F);
+  static const Color appYellow = Color(0xFFFFD700);
+  static const Color appDark = Color(0xFF000000);
+  static const Color appSurfaceDark = Color(0xFF000000);
   static const Color appLight = Color(0xFFFFFFFF);
-  static const Color appSurfaceLight = Color(0xFFF5F5F5);
+  static const Color appSurfaceLight = Color(0xFFFFFFFF);
 
   static ThemeData lightTheme = ThemeData(
     colorScheme: const ColorScheme.light(
