@@ -141,12 +141,6 @@ class _ProfilePageState extends State<ProfilePage>
         posts = fetchedUser?.postsList ?? [];
         isLoading = false;
       });
-      if (fetchedUser is CelebrityUser) {
-        debugPrint('Celebrity user: ${fetchedUser.fullName}');
-        debugPrint('Occupation: ${fetchedUser.occupation}');
-        debugPrint('Followers: ${fetchedUser.followers}');
-        debugPrint('PostsList: ${fetchedUser.postsList}');
-      }
     }
   }
 

@@ -65,14 +65,10 @@ class _PostPageState extends State<PostPage> {
     final email = Provider.of<AppState>(context, listen: false).email;
     debugPrint('JWT token before upload (full): ${token ?? "<null>"}');
 
-    if (title.isEmpty || description.isEmpty || images.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Please fill all fields and select at least one image.',
-          ),
-        ),
-      );
+    if (title.isEmpty || description.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please fill all fields.')));
       return;
     }
     if (token == null) {
@@ -146,14 +142,9 @@ class _PostPageState extends State<PostPage> {
         body: jsonEncode({
           'title': title,
           'content': description,
-          // celebrationType must be one of the backend enum values:
-          // PERSONAL_ACHIEVEMENT, CAREER_MILESTONE, EDUCATIONAL_SUCCESS, HEALTH_FITNESS,
-          // RELATIONSHIP_MILESTONE, CREATIVE_ACCOMPLISHMENT, BUSINESS_SUCCESS,
-          // COMMUNITY_SERVICE, TRAVEL_ADVENTURE, LIFE_EVENT, OTHER
           'celebrationType': _selectedCelebrationType,
           'mediaUrls': mediaUrls,
-          if (userId != null) 'userId': userId,
-          if (email != null) 'email': email,
+          'userId': userId,
         }),
       );
       Navigator.of(context).pop(); // Remove loading indicator

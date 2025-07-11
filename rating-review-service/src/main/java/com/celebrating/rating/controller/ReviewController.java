@@ -10,6 +10,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import jakarta.validation.Valid;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/reviews")
@@ -21,14 +22,14 @@ public class ReviewController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public Mono<Review> createReview(
-            @RequestHeader("X-User-ID") Long userId,
+            @RequestHeader("X-User-ID") UUID userId,
             @Valid @RequestBody ReviewRequest request) {
         return reviewService.createReview(userId, request);
     }
 
     @PutMapping("/{reviewId}")
     public Mono<Review> updateReview(
-            @RequestHeader("X-User-ID") Long userId,
+            @RequestHeader("X-User-ID") UUID userId,
             @PathVariable Long reviewId,
             @Valid @RequestBody ReviewRequest request) {
         return reviewService.updateReview(userId, reviewId, request);
@@ -37,46 +38,46 @@ public class ReviewController {
     @DeleteMapping("/{reviewId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public Mono<Void> deleteReview(
-            @RequestHeader("X-User-ID") Long userId,
+            @RequestHeader("X-User-ID") UUID userId,
             @PathVariable Long reviewId) {
         return reviewService.deleteReview(userId, reviewId);
     }
 
     @GetMapping("/posts/{postId}/user")
     public Mono<Review> getUserPostReview(
-            @RequestHeader("X-User-ID") Long userId,
-            @PathVariable Long postId) {
+            @RequestHeader("X-User-ID") UUID userId,
+            @PathVariable UUID postId) {
         return reviewService.getUserPostReview(userId, postId);
     }
 
     @GetMapping("/posts/{postId}")
     public Flux<Review> getPostReviews(
-            @PathVariable Long postId,
+            @PathVariable UUID postId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         return reviewService.getPostReviews(postId, page, size);
     }
 
     @GetMapping("/users/{userId}")
-    public Flux<Review> getUserReviews(@PathVariable Long userId) {
+    public Flux<Review> getUserReviews(@PathVariable UUID userId) {
         return reviewService.getUserReviews(userId);
     }
 
     @GetMapping("/posts/{postId}/count")
-    public Mono<Long> getReviewCount(@PathVariable Long postId) {
+    public Mono<Long> getReviewCount(@PathVariable UUID postId) {
         return reviewService.getReviewCount(postId);
     }
 
     @PostMapping("/{reviewId}/like")
     public Mono<Review> likeReview(
-            @RequestHeader("X-User-ID") Long userId,
+            @RequestHeader("X-User-ID") UUID userId,
             @PathVariable Long reviewId) {
         return reviewService.likeReview(userId, reviewId);
     }
 
     @DeleteMapping("/{reviewId}/like")
     public Mono<Review> unlikeReview(
-            @RequestHeader("X-User-ID") Long userId,
+            @RequestHeader("X-User-ID") UUID userId,
             @PathVariable Long reviewId) {
         return reviewService.unlikeReview(userId, reviewId);
     }

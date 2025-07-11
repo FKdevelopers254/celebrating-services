@@ -53,8 +53,9 @@ class _SearchPageState extends State<SearchPage>
   late TabController _tabController;
   final ScrollController _flicksScrollController = ScrollController();
   final ValueNotifier<int> _activeFlickIndex = ValueNotifier<int>(0);
-  final ValueNotifier<IndexPair> _activeFlickCell =
-      ValueNotifier<IndexPair>(IndexPair(0, 0));
+  final ValueNotifier<IndexPair> _activeFlickCell = ValueNotifier<IndexPair>(
+    IndexPair(0, 0),
+  );
   bool _isLiveStreamsLoading = true;
   String? _activeStreamId;
   final ScrollController _streamScrollController = ScrollController();
@@ -93,8 +94,10 @@ class _SearchPageState extends State<SearchPage>
         });
         break;
       case 2:
-        results =
-            await SearchService.searchPostsByLocation(query, token: token);
+        results = await SearchService.searchPostsByLocation(
+          query,
+          token: token,
+        );
         setState(() {
           _searchLocationResults = results;
           _isLoading = false;
@@ -121,10 +124,7 @@ class _SearchPageState extends State<SearchPage>
     Navigator.pushNamed(
       context,
       flickScreen,
-      arguments: {
-        'flicks': _searchFlickResults,
-        'initialIndex': index,
-      },
+      arguments: {'flicks': _searchFlickResults, 'initialIndex': index},
     );
   }
 
@@ -132,8 +132,10 @@ class _SearchPageState extends State<SearchPage>
     if (_expandedStreamVisible) return;
     final itemHeight = 240.0; // Approximate height of each LiveStreamCard
     final offset = _streamScrollController.offset;
-    final topIndex =
-        (offset / itemHeight).round().clamp(0, _liveStreams.length - 1);
+    final topIndex = (offset / itemHeight).round().clamp(
+      0,
+      _liveStreams.length - 1,
+    );
     final topStreamId = _liveStreams[topIndex].id;
     if (_activeStreamId != topStreamId) {
       setState(() {
@@ -208,12 +210,8 @@ class _SearchPageState extends State<SearchPage>
           children: [
             Column(
               children: [
-                const Text(
-                  "Search",
-                ),
-                const SizedBox(
-                  height: 5,
-                ),
+                const Text("Search"),
+                const SizedBox(height: 5),
                 AppSearchBar(
                   controller: _searchController,
                   hintText: 'Search...',
@@ -230,22 +228,27 @@ class _SearchPageState extends State<SearchPage>
                   showSearchButton: true,
                   showFilterButton: true,
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 16.0, vertical: 8.0),
+                    horizontal: 16.0,
+                    vertical: 8.0,
+                  ),
                 ),
                 if (!_isSearchResults) ...[
                   Expanded(
-                    child: _isLoading
-                        ? const Center(child: CircularProgressIndicator())
-                        : ListView.builder(
-                            itemCount: _searchUserResults.length,
-                            itemBuilder: (context, i) =>
-                                SearchUserCard(user: _searchUserResults[i]),
-                          ),
+                    child:
+                        _isLoading
+                            ? const Center(child: CircularProgressIndicator())
+                            : ListView.builder(
+                              itemCount: _searchUserResults.length,
+                              itemBuilder:
+                                  (context, i) => SearchUserCard(
+                                    user: _searchUserResults[i],
+                                  ),
+                            ),
                   ),
                 ] else ...[
                   _buildTabBar(isDark),
                   _buildTabs(),
-                ]
+                ],
               ],
             ),
             if (_expandedStream != null)
@@ -273,8 +276,10 @@ class _SearchPageState extends State<SearchPage>
       unselectedLabelColor:
           isDark ? Colors.grey.shade500 : Colors.grey.shade600,
       labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-      unselectedLabelStyle:
-          const TextStyle(fontWeight: FontWeight.normal, fontSize: 16),
+      unselectedLabelStyle: const TextStyle(
+        fontWeight: FontWeight.normal,
+        fontSize: 16,
+      ),
       indicator: UnderlineTabIndicator(
         borderSide: BorderSide(
           width: 3.0,
@@ -317,9 +322,7 @@ class _SearchPageState extends State<SearchPage>
 
   Widget _buildPeopleTab() {
     if (_searchUserResults.isEmpty) {
-      return Center(
-        child: Text("Nothing to display"),
-      );
+      return Center(child: Text("Nothing to display"));
     }
     return ListView.builder(
       itemCount: _searchUserResults.length,
@@ -389,8 +392,9 @@ class _SearchPageState extends State<SearchPage>
     }
     // 3-column grid logic
     final ScrollController _placeScrollController = ScrollController();
-    final ValueNotifier<IndexPair> _activePlaceCell =
-        ValueNotifier<IndexPair>(IndexPair(0, 0));
+    final ValueNotifier<IndexPair> _activePlaceCell = ValueNotifier<IndexPair>(
+      IndexPair(0, 0),
+    );
     return NotificationListener<ScrollNotification>(
       onNotification: (notification) {
         if (notification is ScrollUpdateNotification ||
@@ -443,42 +447,52 @@ class _SearchPageState extends State<SearchPage>
                   return GestureDetector(
                     onTap: () {
                       // Open post detail screen with suggestions
-                      final List<Post> suggestions = _searchLocationResults
-                          .where((e) =>
-                              e is Map<String, dynamic> &&
-                              e['type'] == 'post' &&
-                              e['data'] != post)
-                          .map<Post>((e) => e['data'] as Post)
-                          .toList();
+                      final List<Post> suggestions =
+                          _searchLocationResults
+                              .where(
+                                (e) =>
+                                    e is Map<String, dynamic> &&
+                                    e['type'] == 'post' &&
+                                    e['data'] != post,
+                              )
+                              .map<Post>((e) => e['data'] as Post)
+                              .toList();
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => PostDetailScreen(
-                              post: post, suggestedPosts: suggestions),
+                          builder:
+                              (_) => PostDetailScreen(
+                                post: post,
+                                suggestedPosts: suggestions,
+                              ),
                         ),
                       );
                     },
                     child: Container(
                       color: Colors.black,
                       child: Image.network(
-                        post.mediaLink,
+                        post.mediaUrls.isNotEmpty ? post.mediaUrls.first : '',
                         fit: BoxFit.cover,
                         loadingBuilder: (context, child, loadingProgress) {
                           if (loadingProgress == null) return child;
                           return Center(
                             child: CircularProgressIndicator(
-                              value: loadingProgress.expectedTotalBytes != null
-                                  ? loadingProgress.cumulativeBytesLoaded /
-                                      loadingProgress.expectedTotalBytes!
-                                  : null,
+                              value:
+                                  loadingProgress.expectedTotalBytes != null
+                                      ? loadingProgress.cumulativeBytesLoaded /
+                                          loadingProgress.expectedTotalBytes!
+                                      : null,
                             ),
                           );
                         },
-                        errorBuilder: (context, error, stackTrace) =>
-                            const Center(
-                          child: Icon(Icons.broken_image,
-                              size: 50, color: Colors.grey),
-                        ),
+                        errorBuilder:
+                            (context, error, stackTrace) => const Center(
+                              child: Icon(
+                                Icons.broken_image,
+                                size: 50,
+                                color: Colors.grey,
+                              ),
+                            ),
                       ),
                     ),
                   );
@@ -487,41 +501,52 @@ class _SearchPageState extends State<SearchPage>
                 // fallback for legacy data: treat as post
                 return GestureDetector(
                   onTap: () {
-                    final List<Post> suggestions = _searchLocationResults
-                        .where((e) => (e is Map<String, dynamic> &&
-                            e['type'] == 'post' &&
-                            e['data'] != item))
-                        .map<Post>((e) => e['data'] as Post)
-                        .toList();
+                    final List<Post> suggestions =
+                        _searchLocationResults
+                            .where(
+                              (e) =>
+                                  (e is Map<String, dynamic> &&
+                                      e['type'] == 'post' &&
+                                      e['data'] != item),
+                            )
+                            .map<Post>((e) => e['data'] as Post)
+                            .toList();
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => PostDetailScreen(
-                            post: item, suggestedPosts: suggestions),
+                        builder:
+                            (_) => PostDetailScreen(
+                              post: item,
+                              suggestedPosts: suggestions,
+                            ),
                       ),
                     );
                   },
                   child: Container(
                     color: Colors.black,
                     child: Image.network(
-                      item.mediaLink,
+                      item.mediaUrls.isNotEmpty ? item.mediaUrls.first : '',
                       fit: BoxFit.cover,
                       loadingBuilder: (context, child, loadingProgress) {
                         if (loadingProgress == null) return child;
                         return Center(
                           child: CircularProgressIndicator(
-                            value: loadingProgress.expectedTotalBytes != null
-                                ? loadingProgress.cumulativeBytesLoaded /
-                                    loadingProgress.expectedTotalBytes!
-                                : null,
+                            value:
+                                loadingProgress.expectedTotalBytes != null
+                                    ? loadingProgress.cumulativeBytesLoaded /
+                                        loadingProgress.expectedTotalBytes!
+                                    : null,
                           ),
                         );
                       },
-                      errorBuilder: (context, error, stackTrace) =>
-                          const Center(
-                        child: Icon(Icons.broken_image,
-                            size: 50, color: Colors.grey),
-                      ),
+                      errorBuilder:
+                          (context, error, stackTrace) => const Center(
+                            child: Icon(
+                              Icons.broken_image,
+                              size: 50,
+                              color: Colors.grey,
+                            ),
+                          ),
                     ),
                   ),
                 );
@@ -542,15 +567,11 @@ class _SearchPageState extends State<SearchPage>
   }
 
   Widget _buildCategoriesTab() {
-    return Center(
-      child: Text('Categories Tab'),
-    );
+    return Center(child: Text('Categories Tab'));
   }
 
   Widget _buildRoomTab() {
-    return Center(
-      child: Text('Room Tab'),
-    );
+    return Center(child: Text('Room Tab'));
   }
 
   Widget _buildStreamTab() {
@@ -584,8 +605,6 @@ class _SearchPageState extends State<SearchPage>
   }
 
   Widget _buildUhondoTab() {
-    return Center(
-      child: Text('Stream Tab'),
-    );
+    return Center(child: Text('Stream Tab'));
   }
 }

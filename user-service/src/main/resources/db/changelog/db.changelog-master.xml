@@ -31,7 +31,7 @@
     <!-- Base Users Table -->
     <changeSet id="2" author="celebrating">
         <createTable tableName="users">
-            <column name="id" type="uuid">
+            <column name="id" type="uuid" defaultValueComputed="gen_random_uuid()">
                 <constraints primaryKey="true" nullable="false"/>
             </column>
             <column name="username" type="varchar(50)">
@@ -53,9 +53,11 @@
             <column name="location" type="varchar(255)"/>
             <column name="profile_image_url" type="text"/>
             <column name="is_private" type="boolean" defaultValueBoolean="false"/>
+            <column name="is_active" type="boolean" defaultValueBoolean="true"/>
             <column name="is_verified" type="boolean" defaultValueBoolean="false"/>
             <column name="created_at" type="timestamp with time zone" defaultValueComputed="CURRENT_TIMESTAMP"/>
             <column name="updated_at" type="timestamp with time zone" defaultValueComputed="CURRENT_TIMESTAMP"/>
+            <column name="last_login" type="timestamp with time zone"/>
         </createTable>
     </changeSet>
 
@@ -155,5 +157,15 @@
                 FOR EACH ROW
                 EXECUTE FUNCTION update_updated_at();
         </sql>
+    </changeSet>
+
+    <changeSet id="add-bio-column-to-users-20250709" author="ai-assistant">
+        <addColumn tableName="users">
+            <column name="bio" type="TEXT"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="enable-pgcrypto-extension-20250709" author="ai-assistant">
+        <sql>CREATE EXTENSION IF NOT EXISTS pgcrypto;</sql>
     </changeSet>
 </databaseChangeLog> 

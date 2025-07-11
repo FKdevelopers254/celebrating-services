@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -59,7 +60,7 @@ public class PostServiceImpl implements PostService {
     }
 
     @Override
-    public Flux<Post> getUserPosts(Long userId) {
+    public Flux<Post> getUserPosts(UUID userId) {
         return postRepository.findByUserId(userId);
     }
 
@@ -99,7 +100,7 @@ public class PostServiceImpl implements PostService {
     }
 
     @Override
-    public Mono<Like> likePost(Long postId, Long userId) {
+    public Mono<Like> likePost(Long postId, UUID userId) {
         Like like = new Like();
         like.setPostId(postId);
         like.setUserId(userId);
@@ -117,7 +118,7 @@ public class PostServiceImpl implements PostService {
     }
 
     @Override
-    public Mono<Void> unlikePost(Long postId, Long userId) {
+    public Mono<Void> unlikePost(Long postId, UUID userId) {
         return likeRepository.deleteByPostIdAndUserId(postId, userId)
                 .then(postRepository.updateLikesCount(postId, -1));
     }

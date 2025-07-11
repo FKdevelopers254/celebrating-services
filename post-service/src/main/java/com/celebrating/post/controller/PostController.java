@@ -47,7 +47,7 @@ public class PostController {
     }
 
     @GetMapping("/user/{userId}")
-    public Flux<Post> getUserPosts(@PathVariable Long userId) {
+    public Flux<Post> getUserPosts(@PathVariable UUID userId) {
         return postService.getUserPosts(userId);
     }
 
@@ -81,13 +81,13 @@ public class PostController {
     }
 
     @PostMapping("/{postId}/like")
-    public Mono<Like> likePost(@PathVariable Long postId, @RequestParam Long userId) {
+    public Mono<Like> likePost(@PathVariable Long postId, @RequestParam UUID userId) {
         return postService.likePost(postId, userId);
     }
 
     @DeleteMapping("/{postId}/like")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public Mono<Void> unlikePost(@PathVariable Long postId, @RequestParam Long userId) {
+    public Mono<Void> unlikePost(@PathVariable Long postId, @RequestParam UUID userId) {
         return postService.unlikePost(postId, userId);
     }
 

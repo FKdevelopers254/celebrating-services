@@ -6,6 +6,7 @@ import lombok.Setter;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Table;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Data
 @Getter
@@ -15,6 +16,6 @@ public class Like {
     @Id
     private Long id;
     private Long postId;
-    private Long userId;
+    private UUID userId;
     private LocalDateTime createdAt;
 }

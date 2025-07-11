@@ -33,7 +33,7 @@ class UserService {
       'auth/register',
       user.toJson(),
       (json) => json,
-    );
+        );
     return response;
   }
 

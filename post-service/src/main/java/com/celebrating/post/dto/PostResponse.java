@@ -7,12 +7,13 @@ import lombok.Builder;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 @Data
 @Builder
 public class PostResponse {
     private Long id;
-    private Long userId;
+    private UUID userId;
     private String title;
     private String content;
     private CelebrationType celebrationType;

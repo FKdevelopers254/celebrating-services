@@ -9,7 +9,14 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(100) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
     role VARCHAR(20) NOT NULL DEFAULT 'USER',
+    full_name VARCHAR(200),
+    bio TEXT,
     is_verified BOOLEAN DEFAULT FALSE,
+    is_active BOOLEAN DEFAULT TRUE,
+    is_private BOOLEAN DEFAULT FALSE,
+    profile_image_url TEXT,
+    location VARCHAR(255),
+    last_login TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -146,3 +153,37 @@ CREATE TRIGGER update_posts_updated_at
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO celebrate;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO celebrate;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO celebrate; 
+
+
+ALTER TABLE users ALTER COLUMN is_private SET DEFAULT FALSE;
+UPDATE users SET is_private = FALSE WHERE is_private IS NULL;
+ALTER TABLE users ALTER COLUMN is_private SET NOT NULL;
+ALTER TABLE users ALTER COLUMN is_verified SET DEFAULT FALSE;
+UPDATE users SET is_verified = FALSE WHERE is_verified IS NULL;
+ALTER TABLE users ALTER COLUMN is_verified SET NOT NULL;
+ALTER TABLE users ALTER COLUMN bio SET NOT NULL;
+ALTER TABLE users ALTER COLUMN location SET NOT NULL;
+ALTER TABLE users ALTER COLUMN profile_image_url SET NOT NULL;
+ALTER TABLE users ALTER COLUMN created_at SET NOT NULL;
+ALTER TABLE users ALTER COLUMN updated_at SET NOT NULL;
+ALTER TABLE users ALTER COLUMN is_active SET NOT NULL;
+-- Set default for created_at and updated_at
+ALTER TABLE users ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE users ALTER COLUMN updated_at SET DEFAULT CURRENT_TIMESTAMP;
+
+-- Set default for is_active (if not already)
+ALTER TABLE users ALTER COLUMN is_active SET DEFAULT TRUE;
+
+-- Set default for bio, location, profile_image_url (optional, as empty string)
+ALTER TABLE users ALTER COLUMN bio SET DEFAULT '';
+ALTER TABLE users ALTER COLUMN location SET DEFAULT '';
+ALTER TABLE users ALTER COLUMN profile_image_url SET DEFAULT '';
+
+-- Update existing NULLs to default values
+UPDATE users SET bio = '' WHERE bio IS NULL;
+UPDATE users SET location = '' WHERE location IS NULL;
+UPDATE users SET profile_image_url = '' WHERE profile_image_url IS NULL;
+UPDATE users SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL;
+UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL;
+UPDATE users SET is_active = TRUE WHERE is_active IS NULL;
+ALTER TABLE posts ALTER COLUMN user_id TYPE UUID USING user_id::text::uuid;

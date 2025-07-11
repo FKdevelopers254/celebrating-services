@@ -5,6 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.time.ZonedDateTime;
 import java.util.UUID;
+import org.hibernate.annotations.GenericGenerator;
 
 @Data
 @NoArgsConstructor
@@ -12,7 +13,8 @@ import java.util.UUID;
 @Table(name = "users")
 public class User {
     @Id
-    @GeneratedValue
+    @GeneratedValue(generator = "UUID")
+    @org.hibernate.annotations.GenericGenerator(name = "UUID", strategy = "org.hibernate.id.UUIDGenerator")
     @Column(columnDefinition = "uuid", updatable = false, nullable = false)
     private UUID id;
 
@@ -43,11 +45,23 @@ public class User {
     @Column(name = "is_verified")
     private boolean isVerified;
 
+    @Column(name = "is_active")
+    private boolean isActive;
+
     @Column(name = "created_at")
     private ZonedDateTime createdAt;
 
     @Column(name = "updated_at")
     private ZonedDateTime updatedAt;
+    @Column(name = "last_login")
+    private ZonedDateTime lastLogin;
+
+    @PrePersist
+    public void ensureId() {
+        if (id == null) {
+            id = java.util.UUID.randomUUID();
+        }
+    }
 
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private UserStats stats;

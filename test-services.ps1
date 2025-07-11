@@ -67,6 +67,7 @@ $registrationBody = @{
     email = $email
     password = "Test123!"
     fullName = "Test User"
+    role = "USER"
 } | ConvertTo-Json
 
 Write-Host "`nTesting registration endpoint..." -ForegroundColor Yellow
@@ -80,7 +81,13 @@ $registrationResponse = Invoke-ServiceRequest -Uri "http://localhost:8080/api/au
     -Body $registrationBody `
     -ServiceName "Registration"
 
+# Extract userId (UUID string) from registration response
 if ($registrationResponse) {
+    $registrationContent = $registrationResponse.Content | ConvertFrom-Json
+    $userId = $registrationContent.userId
+    $registeredUsername = $registrationContent.username
+    $registeredEmail = $registrationContent.email
+
     # Test user login
     $loginBody = @{
         username = $username
@@ -94,9 +101,11 @@ if ($registrationResponse) {
         -ServiceName "Login"
 
     if ($loginResponse) {
-        $token = ($loginResponse.Content | ConvertFrom-Json).token
+        $loginContent = $loginResponse.Content | ConvertFrom-Json
+        $token = $loginContent.accessToken
         Write-Host "`nJWT Token:" -ForegroundColor Yellow
         Write-Host $token -ForegroundColor Gray
+        $headers = @{"Authorization" = "Bearer $token"}
     }
 }
 
@@ -104,36 +113,52 @@ Write-Host "`nTests completed!" -ForegroundColor Cyan
 
 Write-Host "`n=== Testing User Service ===" -ForegroundColor Green
 try {
-    # Create user in User Service first
-    $currentTime = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-    $createUserBody = @{
-        username = $registerResponse.username
-        email = $registerResponse.email
-        password = "password123"
-        fullName = "Test User"
-        role = "USER"
-        isPrivate = $false
-        isVerified = $false
-        createdAt = $currentTime
-        updatedAt = $currentTime
-        stats = @{
-            postsCount = 0
-            followersCount = 0
-            followingCount = 0
+    # Check if user already exists in User Service before creating
+    Write-Host "Checking if user already exists in User Service..." -ForegroundColor Yellow
+    $existingUserResponse = $null
+    try {
+        $existingUserResponse = Invoke-RestMethod -Method Get -Uri "http://localhost:8082/api/users/username/$registeredUsername" -Headers $headers
+    } catch {
+        # If not found, $existingUserResponse stays $null
+    }
+    if (-not $existingUserResponse) {
+        # Create user in User Service only if not found
+        $currentTime = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+        $createUserBody = @{
+            userId = $userId
+            username = $registeredUsername
+            email = $registeredEmail
+            password = "password123"
+            fullName = "Test User"
+            role = "USER"
+            isPrivate = $false
+            isVerified = $false
+            isActive = $true
+            createdAt = $currentTime
             updatedAt = $currentTime
-        }
-    } | ConvertTo-Json -Depth 10
+            bio = ""
+            location = ""
+            profileImageUrl = ""
+            stats = @{
+                postsCount = 0
+                followersCount = 0
+                followingCount = 0
+                updatedAt = $currentTime
+            }
+        } | ConvertTo-Json -Depth 10
 
-    Write-Host "Creating user in User Service..." -ForegroundColor Yellow
-    $createUserResponse = Invoke-RestMethod -Method Post -Uri "http://localhost:8082/api/api/users" `
-        -Headers $headers -Body $createUserBody -ContentType 'application/json'
-    Write-Host "User created successfully in User Service" -ForegroundColor Green
+        Write-Host "Creating user in User Service..." -ForegroundColor Yellow
+        $createUserResponse = Invoke-RestMethod -Method Post -Uri "http://localhost:8082/api/users" `
+            -Headers $headers -Body $createUserBody -ContentType 'application/json'
+        Write-Host "User created successfully in User Service" -ForegroundColor Green
+        Start-Sleep -Seconds 2  # Add a small delay to ensure the user is created
+    } else {
+        Write-Host "User already exists in User Service, skipping creation." -ForegroundColor Yellow
+    }
 
-    Start-Sleep -Seconds 2  # Add a small delay to ensure the user is created
-
-    # Now fetch the user profile
+    # Now fetch the user profile by username (or by userId if supported)
     Write-Host "Fetching user profile..." -ForegroundColor Yellow
-    $userResponse = Invoke-RestMethod -Method Get -Uri "http://localhost:8082/api/api/users/username/$($registerResponse.username)" `
+    $userResponse = Invoke-RestMethod -Method Get -Uri "http://localhost:8082/api/users/username/$registeredUsername" `
         -Headers $headers
     Write-Host "User profile fetched successfully" -ForegroundColor Green
     Write-Host "User ID: $($userResponse.id)" -ForegroundColor Yellow
@@ -141,8 +166,9 @@ try {
     # Update user profile with all required fields
     $currentTime = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
     $updateProfileBody = @{
-        username = $registerResponse.username
-        email = $registerResponse.email
+        userId = $userId
+        username = $registeredUsername
+        email = $registeredEmail
         fullName = "Updated Test User"
         bio = "This is a test bio"
         location = "Test Location"
@@ -156,14 +182,14 @@ try {
     } | ConvertTo-Json
 
     Write-Host "Updating profile..." -ForegroundColor Yellow
-    $updateResponse = Invoke-RestMethod -Method Put -Uri "http://localhost:8082/api/api/users/$($userResponse.id)" `
-        -Headers $headers -Body $updateProfileBody
+    $updateResponse = Invoke-RestMethod -Method Put -Uri "http://localhost:8082/api/users/$($userResponse.id)" `
+        -Headers $headers -Body $updateProfileBody -ContentType 'application/json'
     Write-Host "Profile updated successfully" -ForegroundColor Green
     Write-Host "Updated profile details: $($updateResponse | ConvertTo-Json)" -ForegroundColor Green
 
     # Test getting celebrity profiles
     Write-Host "Testing celebrity profile endpoints..." -ForegroundColor Yellow
-    $celebritiesResponse = Invoke-RestMethod -Method Get -Uri "http://localhost:8082/api/api/users/celebrities" `
+    $celebritiesResponse = Invoke-RestMethod -Method Get -Uri "http://localhost:8082/api/users/celebrities" `
         -Headers $headers
     Write-Host "Found $($celebritiesResponse.Count) celebrity profiles" -ForegroundColor Green
 
@@ -183,17 +209,19 @@ try {
     # Create a new post
     $createPostBody = @{
         title = "Test Post from Post Service $(Get-Random)"
-        content = "This is a test post content"
-        category = "TEST"
+        content = "This is a test post content for the API."
+        celebrationType = "OTHER"
+        userId = $userId
+        mediaUrls = @()
     } | ConvertTo-Json
 
     Write-Host "Creating post..." -ForegroundColor Yellow
-    $postResponse = Invoke-RestMethod -Method Post -Uri "http://localhost:8083/api/v1/posts" `
-        -Headers $headers -Body $createPostBody
+    $postResponse = Invoke-RestMethod -Method Post -Uri "http://localhost:8083/api/posts" `
+        -Headers $headers -Body $createPostBody -ContentType 'application/json'
     Write-Host "Post created successfully" -ForegroundColor Green
 
     # Get posts
-    $postsResponse = Invoke-RestMethod -Method Get -Uri "http://localhost:8083/api/v1/posts" `
+    $postsResponse = Invoke-RestMethod -Method Get -Uri "http://localhost:8083/api/posts" `
         -Headers $headers
     Write-Host "Posts fetched successfully" -ForegroundColor Green
 } catch {
@@ -204,18 +232,20 @@ Write-Host "`n=== Testing Rating & Review Service ===" -ForegroundColor Green
 try {
     # Create a review
     $reviewBody = @{
-        postId = "1"
-        rating = 5
-        comment = "This is a test review"
+        postId = $postId  # Use a UUID postId
+        content = "This is a test review content"
     } | ConvertTo-Json
+
+    $reviewHeaders = $headers.Clone()
+    $reviewHeaders["X-User-ID"] = $userId  # Send userId as UUID in header
 
     Write-Host "Creating review..." -ForegroundColor Yellow
     $reviewResponse = Invoke-RestMethod -Method Post -Uri "http://localhost:8088/api/reviews" `
-        -Headers $headers -Body $reviewBody
+        -Headers $reviewHeaders -Body $reviewBody -ContentType 'application/json'
     Write-Host "Review created successfully" -ForegroundColor Green
 
     # Get reviews for a post
-    $getReviewsResponse = Invoke-RestMethod -Method Get -Uri "http://localhost:8088/api/reviews/post/1" `
+    $getReviewsResponse = Invoke-RestMethod -Method Get -Uri "http://localhost:8088/api/reviews/posts/$postId" `
         -Headers $headers
     Write-Host "Reviews fetched successfully" -ForegroundColor Green
 } catch {
@@ -231,12 +261,12 @@ try {
     } | ConvertTo-Json
 
     Write-Host "Sending message..." -ForegroundColor Yellow
-    $messageResponse = Invoke-RestMethod -Method Post -Uri "http://localhost:8086/api/v1/messages" `
+    $messageResponse = Invoke-RestMethod -Method Post -Uri "http://localhost:8086/api/messages" `
         -Headers $headers -Body $messageBody
     Write-Host "Message sent successfully" -ForegroundColor Green
 
     # Get conversations
-    $conversationsResponse = Invoke-RestMethod -Method Get -Uri "http://localhost:8086/api/v1/messages/conversations" `
+    $conversationsResponse = Invoke-RestMethod -Method Get -Uri "http://localhost:8086/api/messages/conversations" `
         -Headers $headers
     Write-Host "Conversations fetched successfully" -ForegroundColor Green
 } catch {
@@ -246,12 +276,12 @@ try {
 Write-Host "`n=== Testing Notifications Service ===" -ForegroundColor Green
 try {
     Write-Host "Fetching notifications..." -ForegroundColor Yellow
-    $notificationsResponse = Invoke-RestMethod -Method Get -Uri "http://localhost:8087/api/v1/notifications" `
+    $notificationsResponse = Invoke-RestMethod -Method Get -Uri "http://localhost:8087/api/notifications" `
         -Headers $headers
     Write-Host "Notifications fetched successfully" -ForegroundColor Green
 
     # Mark notification as read
-    $markReadResponse = Invoke-RestMethod -Method Put -Uri "http://localhost:8087/api/v1/notifications/1/read" `
+    $markReadResponse = Invoke-RestMethod -Method Put -Uri "http://localhost:8087/api/notifications/1/read" `
         -Headers $headers
     Write-Host "Notification marked as read" -ForegroundColor Green
 } catch {
@@ -284,12 +314,12 @@ try {
 Write-Host "`n=== Testing Awards Service ===" -ForegroundColor Green
 try {
     Write-Host "Fetching achievements..." -ForegroundColor Yellow
-    $achievementsResponse = Invoke-RestMethod -Method Get -Uri "http://localhost:8090/api/awards/achievements" `
+    $achievementsResponse = Invoke-RestMethod -Method Get -Uri "http://localhost:8089/api/awards/achievements" `
         -Headers $headers
     Write-Host "Achievements fetched successfully" -ForegroundColor Green
 
     # Get user awards
-    $userAwardsResponse = Invoke-RestMethod -Method Get -Uri "http://localhost:8090/api/awards/user/1" `
+    $userAwardsResponse = Invoke-RestMethod -Method Get -Uri "http://localhost:8089/api/awards/user/1" `
         -Headers $headers
     Write-Host "User awards fetched successfully" -ForegroundColor Green
 } catch {

@@ -53,10 +53,11 @@ class _CommentsModalState extends State<CommentsModal> {
       return;
     }
     print(
-        'Posting comment to post ${widget.postId}: ${_commentController.text}');
+      'Posting comment to post ${widget.postId}: ${_commentController.text}',
+    );
 
     final User currentUser = User(
-      id: 999,
+      id: '999',
       username: 'CurrentUser',
       fullName: 'You',
       profileImageUrl:
@@ -138,47 +139,54 @@ class _CommentsModalState extends State<CommentsModal> {
 
             // Comments List
             Expanded(
-              child: widget.comments.isEmpty
-                  ? Center(
-                      child: Text(
-                        'No comments yet. Be the first to comment!',
-                        style: TextStyle(color: secondaryTextColor),
+              child:
+                  widget.comments.isEmpty
+                      ? Center(
+                        child: Text(
+                          'No comments yet. Be the first to comment!',
+                          style: TextStyle(color: secondaryTextColor),
+                        ),
+                      )
+                      : ListView.builder(
+                        padding: EdgeInsets.zero,
+                        itemCount: widget.comments.length,
+                        itemBuilder: (context, index) {
+                          return CommentTile(
+                            comment: widget.comments[index],
+                            onReply: () {
+                              setState(() {
+                                _replyingTo = widget.comments[index];
+                              });
+                              SchedulerBinding.instance.addPostFrameCallback((
+                                _,
+                              ) {
+                                _commentController.text =
+                                    '@${widget.comments[index].user.username} ';
+                                _commentFocusNode.requestFocus();
+                                _commentController
+                                    .selection = TextSelection.fromPosition(
+                                  TextPosition(
+                                    offset: _commentController.text.length,
+                                  ),
+                                );
+                              });
+                            },
+                          );
+                        },
                       ),
-                    )
-                  : ListView.builder(
-                      padding: EdgeInsets.zero,
-                      itemCount: widget.comments.length,
-                      itemBuilder: (context, index) {
-                        return CommentTile(
-                          comment: widget.comments[index],
-                          onReply: () {
-                            setState(() {
-                              _replyingTo = widget.comments[index];
-                            });
-                            SchedulerBinding.instance.addPostFrameCallback((_) {
-                              _commentController.text =
-                                  '@${widget.comments[index].user.username} ';
-                              _commentFocusNode.requestFocus();
-                              _commentController.selection =
-                                  TextSelection.fromPosition(
-                                TextPosition(
-                                    offset: _commentController.text.length),
-                              );
-                            });
-                          },
-                        );
-                      },
-                    ),
             ),
             if (_replyingTo != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 4.0),
                 child: Row(
                   children: [
-                    Text('Replying to @${_replyingTo!.user.username}',
-                        style: TextStyle(
-                            color: appPrimaryColor,
-                            fontWeight: FontWeight.bold)),
+                    Text(
+                      'Replying to @${_replyingTo!.user.username}',
+                      style: TextStyle(
+                        color: appPrimaryColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     const SizedBox(width: 8),
                     GestureDetector(
                       onTap: () {
@@ -187,9 +195,12 @@ class _CommentsModalState extends State<CommentsModal> {
                           _commentController.clear();
                         });
                       },
-                      child: Icon(Icons.close,
-                          size: 18, color: secondaryTextColor),
-                    )
+                      child: Icon(
+                        Icons.close,
+                        size: 18,
+                        color: secondaryTextColor,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -210,7 +221,9 @@ class _CommentsModalState extends State<CommentsModal> {
                       duration: const Duration(milliseconds: 200),
                       curve: Curves.ease,
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 2),
+                        horizontal: 12,
+                        vertical: 2,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -224,27 +237,33 @@ class _CommentsModalState extends State<CommentsModal> {
                                   maxLines: 4,
                                   decoration: InputDecoration(
                                     filled: true,
-                                    fillColor: isDark
-                                        ? Colors.grey[850]
-                                        : Colors.grey[100],
+                                    fillColor:
+                                        isDark
+                                            ? Colors.grey[850]
+                                            : Colors.grey[100],
                                     hintText: 'Add a reply...',
-                                    hintStyle:
-                                        TextStyle(color: secondaryTextColor),
+                                    hintStyle: TextStyle(
+                                      color: secondaryTextColor,
+                                    ),
                                     contentPadding: const EdgeInsets.symmetric(
-                                        horizontal: 18, vertical: 12),
+                                      horizontal: 18,
+                                      vertical: 12,
+                                    ),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(25),
                                       borderSide: BorderSide(
-                                        color:
-                                            secondaryTextColor.withOpacity(0.5),
+                                        color: secondaryTextColor.withOpacity(
+                                          0.5,
+                                        ),
                                         width: 1.5,
                                       ),
                                     ),
                                     enabledBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(25),
                                       borderSide: BorderSide(
-                                        color:
-                                            secondaryTextColor.withOpacity(0.5),
+                                        color: secondaryTextColor.withOpacity(
+                                          0.5,
+                                        ),
                                         width: 1.5,
                                       ),
                                     ),
@@ -266,7 +285,11 @@ class _CommentsModalState extends State<CommentsModal> {
                           if (_commentFocusNode.hasFocus || _hasText)
                             Padding(
                               padding: const EdgeInsets.only(
-                                  top: 8.0, left: 2.0, right: 2.0, bottom: 2.0),
+                                top: 8.0,
+                                left: 2.0,
+                                right: 2.0,
+                                bottom: 2.0,
+                              ),
                               child: Row(
                                 children: [
                                   GestureDetector(
@@ -276,9 +299,13 @@ class _CommentsModalState extends State<CommentsModal> {
                                     },
                                     child: Padding(
                                       padding: const EdgeInsets.symmetric(
-                                          horizontal: 4.0),
-                                      child: Icon(Icons.image_outlined,
-                                          color: secondaryTextColor, size: 24),
+                                        horizontal: 4.0,
+                                      ),
+                                      child: Icon(
+                                        Icons.image_outlined,
+                                        color: secondaryTextColor,
+                                        size: 24,
+                                      ),
                                     ),
                                   ),
                                   GestureDetector(
@@ -288,32 +315,40 @@ class _CommentsModalState extends State<CommentsModal> {
                                     },
                                     child: Padding(
                                       padding: const EdgeInsets.symmetric(
-                                          horizontal: 4.0),
-                                      child: Icon(Icons.alternate_email,
-                                          color: secondaryTextColor, size: 24),
+                                        horizontal: 4.0,
+                                      ),
+                                      child: Icon(
+                                        Icons.alternate_email,
+                                        color: secondaryTextColor,
+                                        size: 24,
+                                      ),
                                     ),
                                   ),
                                   const Spacer(),
                                   ElevatedButton(
                                     onPressed: _hasText ? _postComment : null,
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: _hasText
-                                          ? appPrimaryColor
-                                          : secondaryTextColor,
+                                      backgroundColor:
+                                          _hasText
+                                              ? appPrimaryColor
+                                              : secondaryTextColor,
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(20),
                                       ),
                                       elevation: 0,
                                       padding: const EdgeInsets.symmetric(
-                                          horizontal: 18, vertical: 10),
+                                        horizontal: 18,
+                                        vertical: 10,
+                                      ),
                                       minimumSize: const Size(0, 36),
                                     ),
                                     child: Text(
                                       'Reply',
                                       style: TextStyle(
-                                        color: _hasText
-                                            ? Colors.white
-                                            : Colors.grey[300],
+                                        color:
+                                            _hasText
+                                                ? Colors.white
+                                                : Colors.grey[300],
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
@@ -357,108 +392,112 @@ class CommentTile extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         Expanded(
-            child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text.rich(
-                    TextSpan(
-                      children: [
-                        TextSpan(
-                          text: comment.user.username,
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: defaultTextColor,
-                            fontSize: 14,
-                          ),
-                        ),
-                        TextSpan(
-                          text:
-                              ' • 1d', // Placeholder for time ago, you can add this to your Comment model
-                          style: TextStyle(
-                            color: secondaryTextColor,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                // Like button for comment
-                GestureDetector(
-                  onTap: () {
-                    // Handle like for this specific comment
-                    print('Liked comment: ${comment.id}');
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 8.0),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Icon(
-                          Icons.favorite_border,
-                          color: secondaryTextColor,
-                          size: 20,
-                        ),
-                        if (comment.likes > 0)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 4.0),
-                            child: Text(
-                              comment.likes.toString(),
-                              style: TextStyle(
-                                color: secondaryTextColor,
-                                fontSize: 16,
-                              ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: comment.user.username,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: defaultTextColor,
+                              fontSize: 14,
                             ),
                           ),
-                      ],
+                          TextSpan(
+                            text:
+                                ' • 1d', // Placeholder for time ago, you can add this to your Comment model
+                            style: TextStyle(
+                              color: secondaryTextColor,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  // Like button for comment
+                  GestureDetector(
+                    onTap: () {
+                      // Handle like for this specific comment
+                      print('Liked comment: ${comment.id}');
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 8.0),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Icon(
+                            Icons.favorite_border,
+                            color: secondaryTextColor,
+                            size: 20,
+                          ),
+                          if (comment.likes > 0)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 4.0),
+                              child: Text(
+                                comment.likes.toString(),
+                                style: TextStyle(
+                                  color: secondaryTextColor,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              // Comment Content
+              Text(
+                comment.content,
+                style: TextStyle(color: defaultTextColor, fontSize: 14),
+              ),
+              const SizedBox(height: 4),
+              // Reply Button
+              if (onReply != null)
+                GestureDetector(
+                  onTap: onReply,
+                  child: Text(
+                    'Reply',
+                    style: TextStyle(
+                      color: secondaryTextColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
                     ),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            // Comment Content
-            Text(
-              comment.content,
-              style: TextStyle(
-                color: defaultTextColor,
-                fontSize: 14,
-              ),
-            ),
-            const SizedBox(height: 4),
-            // Reply Button
-            if (onReply != null)
-              GestureDetector(
-                onTap: onReply,
-                child: Text(
-                  'Reply',
-                  style: TextStyle(
-                    color: secondaryTextColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
+
+              // Render replies recursively
+              if (comment.replies.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(
+                    left: 5.0,
+                    top: 8.0,
+                    bottom: 8,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children:
+                        comment.replies
+                            .map(
+                              (reply) => CommentTile(comment: reply),
+                            ) // Recursive call for replies
+                            .toList(),
                   ),
                 ),
-              ),
-
-            // Render replies recursively
-            if (comment.replies.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(left: 5.0, top: 8.0, bottom: 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: comment.replies
-                      .map((reply) => CommentTile(
-                          comment: reply)) // Recursive call for replies
-                      .toList(),
-                ),
-              ),
-          ],
-        ))
+            ],
+          ),
+        ),
       ],
     );
   }

@@ -45,4 +45,14 @@
             <column name="created_at"/>
         </createIndex>
     </changeSet>
+
+    <changeSet id="002b" author="celebrating">
+        <preConditions onFail="MARK_RAN">
+            <columnExists tableName="reviews" columnName="user_id"/>
+            <columnExists tableName="reviews" columnName="post_id"/>
+        </preConditions>
+        <!-- WARNING: Manual data migration may be required if you have existing data. -->
+        <modifyDataType tableName="reviews" columnName="user_id" newDataType="UUID"/>
+        <modifyDataType tableName="reviews" columnName="post_id" newDataType="UUID"/>
+    </changeSet>
 </databaseChangeLog> 

@@ -11,6 +11,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -19,7 +20,7 @@ public class ReviewServiceImpl implements ReviewService {
     private final ReviewRepository reviewRepository;
 
     @Override
-    public Mono<Review> createReview(Long userId, ReviewRequest request) {
+    public Mono<Review> createReview(UUID userId, ReviewRequest request) {
         return reviewRepository.findByUserIdAndPostId(userId, request.getPostId())
             .flatMap(existingReview -> {
                 existingReview.setContent(request.getContent());
@@ -40,7 +41,7 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     @Override
-    public Mono<Review> updateReview(Long userId, Long reviewId, ReviewRequest request) {
+    public Mono<Review> updateReview(UUID userId, Long reviewId, ReviewRequest request) {
         return reviewRepository.findById(reviewId)
             .filter(review -> review.getUserId().equals(userId))
             .flatMap(review -> {
@@ -51,7 +52,7 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     @Override
-    public Mono<Void> deleteReview(Long userId, Long reviewId) {
+    public Mono<Void> deleteReview(UUID userId, Long reviewId) {
         return reviewRepository.findById(reviewId)
             .filter(review -> review.getUserId().equals(userId))
             .flatMap(review -> {
@@ -62,27 +63,27 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     @Override
-    public Mono<Review> getUserPostReview(Long userId, Long postId) {
+    public Mono<Review> getUserPostReview(UUID userId, UUID postId) {
         return reviewRepository.findByUserIdAndPostId(userId, postId);
     }
 
     @Override
-    public Flux<Review> getPostReviews(Long postId, int page, int size) {
+    public Flux<Review> getPostReviews(UUID postId, int page, int size) {
         return reviewRepository.findByPostId(postId, size, page * size);
     }
 
     @Override
-    public Flux<Review> getUserReviews(Long userId) {
+    public Flux<Review> getUserReviews(UUID userId) {
         return reviewRepository.findByUserId(userId);
     }
 
     @Override
-    public Mono<Long> getReviewCount(Long postId) {
+    public Mono<Long> getReviewCount(UUID postId) {
         return reviewRepository.getReviewCountForPost(postId);
     }
 
     @Override
-    public Mono<Review> likeReview(Long userId, Long reviewId) {
+    public Mono<Review> likeReview(UUID userId, Long reviewId) {
         return reviewRepository.findById(reviewId)
             .flatMap(review -> {
                 review.setLikesCount(review.getLikesCount() + 1);
@@ -91,7 +92,7 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     @Override
-    public Mono<Review> unlikeReview(Long userId, Long reviewId) {
+    public Mono<Review> unlikeReview(UUID userId, Long reviewId) {
         return reviewRepository.findById(reviewId)
             .flatMap(review -> {
                 review.setLikesCount(Math.max(0, review.getLikesCount() - 1));

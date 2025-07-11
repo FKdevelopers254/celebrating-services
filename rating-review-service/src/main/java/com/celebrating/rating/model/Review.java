@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Data
 @Builder
@@ -24,11 +25,11 @@ public class Review {
     
     @NotNull(message = "User ID is required")
     @Column("user_id")
-    private Long userId;
+    private UUID userId;
     
     @NotNull(message = "Post ID is required")
     @Column("post_id")
-    private Long postId;
+    private UUID postId;
     
     @NotBlank(message = "Content is required")
     @Size(min = 10, message = "Review content must be at least 10 characters")

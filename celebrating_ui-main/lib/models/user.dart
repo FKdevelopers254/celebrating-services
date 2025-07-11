@@ -1,7 +1,7 @@
 import 'post.dart';
 
 class User {
-  final int? id;
+  final String? id;
   final String username;
   final String password;
   final String email;
@@ -37,7 +37,7 @@ class User {
       return CelebrityUser.fromJson(json);
     }
     return User(
-      id: json['id'] ?? json['userId'],
+      id: json['userId']?.toString(),
       username: json['username'] ?? '',
       password: json['password'] ?? '',
       email: json['email'] ?? '',
@@ -98,7 +98,7 @@ class CelebrityUser extends User {
   final Map<String, List<Map<String, dynamic>>> fashionStyle;
 
   CelebrityUser({
-    required int id,
+    required String id,
     required String username,
     required String password,
     required String email,
@@ -152,7 +152,7 @@ class CelebrityUser extends User {
 
   factory CelebrityUser.fromJson(Map<String, dynamic> json) {
     return CelebrityUser(
-      id: json['id'] ?? json['userId'],
+      id: json['userId']?.toString() ?? '',
       username: json['username'] ?? '',
       password: json['password'] ?? '',
       email: json['email'] ?? '',

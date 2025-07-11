@@ -28,7 +28,6 @@ spring:
           predicates:
             - Path=/api/posts/**
           filters:
-            - RewritePath=/api/posts/(?<segment>.*), /${segment}
             - AddRequestHeader=X-Forwarded-Prefix, /api/posts
             - JwtAuthentication
         - id: messaging-service

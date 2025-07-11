@@ -7,6 +7,7 @@ import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.util.List;
+import java.util.UUID;
 
 @Data
 public class PostRequest {
@@ -20,6 +21,9 @@ public class PostRequest {
     
     @NotNull(message = "Celebration type is required")
     private CelebrationType celebrationType;
+    
+    @NotNull(message = "User ID is required")
+    private UUID userId;
     
     private List<String> mediaUrls;
 } 

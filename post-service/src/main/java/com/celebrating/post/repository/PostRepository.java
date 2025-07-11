@@ -6,8 +6,10 @@ import org.springframework.data.r2dbc.repository.Query;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.UUID;
+
 public interface PostRepository extends R2dbcRepository<Post, Long> {
-    Flux<Post> findByUserId(Long userId);
+    Flux<Post> findByUserId(UUID userId);
     
     @Query("SELECT * FROM posts WHERE status = 'ACTIVE' ORDER BY created_at DESC LIMIT :size OFFSET :page * :size")
     Flux<Post> findRecentPosts(int page, int size);
