@@ -28,8 +28,9 @@ class _FeedScreenState extends State<FeedScreen> {
   int _selectedIndex = 0;
 
   // Global mute state for feed videos
-  static final ValueNotifier<bool> feedMuteNotifier =
-      ValueNotifier<bool>(true); // true = muted by default
+  static final ValueNotifier<bool> feedMuteNotifier = ValueNotifier<bool>(
+    true,
+  ); // true = muted by default
 
   // Fetch feed from FeedService and update posts
   Future<void> fetchFeed() async {
@@ -91,18 +92,14 @@ class _FeedScreenState extends State<FeedScreen> {
           padding: EdgeInsets.zero,
           children: const <Widget>[
             DrawerHeader(
-              decoration: BoxDecoration(
-                color: Colors.blue,
+              decoration: BoxDecoration(color: Colors.blue),
+              child: Text(
+                'Drawer Header',
+                style: TextStyle(color: Colors.white),
               ),
-              child:
-                  Text('Drawer Header', style: TextStyle(color: Colors.white)),
             ),
-            ListTile(
-              title: Text('Item 1'),
-            ),
-            ListTile(
-              title: Text('Item 2'),
-            ),
+            ListTile(title: Text('Item 1')),
+            ListTile(title: Text('Item 2')),
           ],
         ),
       ),
@@ -115,19 +112,28 @@ class _FeedScreenState extends State<FeedScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 8.0),
                 child: GestureDetector(
                   onTap: () {
-                    // Implement profile navigation
-                    print('Profile picture tapped');
+                    Navigator.pushNamed(context, profileScreen);
                   },
-                  child: CircleAvatar(
-                    radius: 30, // Adjust size
-                    backgroundColor: Theme.of(context)
-                        .colorScheme
-                        .secondary
-                        .withOpacity(0.5), // Placeholder color
-                    // You would typically load an actual image here:
-                    // backgroundImage: NetworkImage('your_profile_picture_url'),
-                    child: const Icon(Icons.person,
-                        color: Colors.white), // Placeholder icon
+                  child: Consumer<AppState>(
+                    builder: (context, appState, _) {
+                      final avatarUrl =
+                          appState
+                              .userAvatarUrl; // Ensure this is set in AppState
+                      return CircleAvatar(
+                        radius: 30,
+                        backgroundColor: Theme.of(
+                          context,
+                        ).colorScheme.secondary.withOpacity(0.5),
+                        backgroundImage:
+                            avatarUrl != null && avatarUrl.isNotEmpty
+                                ? NetworkImage(avatarUrl)
+                                : null,
+                        child:
+                            avatarUrl == null || avatarUrl.isEmpty
+                                ? const Icon(Icons.person, color: Colors.white)
+                                : null,
+                      );
+                    },
                   ),
                 ),
               ),
@@ -136,24 +142,20 @@ class _FeedScreenState extends State<FeedScreen> {
             AppTransparentButton(
               text: 'Profile',
               icon: Icons.person_outline,
-              // iconColor: Colors.blueAccent, // Custom icon color
               onPressed: () {
-                print('Profile button tapped');
                 Navigator.pushReplacementNamed(context, profileScreen);
               },
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 20, vertical: 12), // Custom padding
-              borderRadius: BorderRadius.circular(25), // More rounded corners
-            )
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              borderRadius: BorderRadius.circular(25),
+            ),
           ],
         ),
       ),
       body: ListView.builder(
         itemCount: posts.length,
-        itemBuilder: (context, i) => PostCard(
-          post: posts[i],
-          feedMuteNotifier: feedMuteNotifier,
-        ),
+        itemBuilder:
+            (context, i) =>
+                PostCard(post: posts[i], feedMuteNotifier: feedMuteNotifier),
       ),
     );
   }
@@ -166,8 +168,7 @@ class MyAppBar extends StatefulWidget implements PreferredSizeWidget {
   State<MyAppBar> createState() => _MyAppBarState();
 
   @override
-  Size get preferredSize =>
-      const Size.fromHeight(kToolbarHeight); // Standard AppBar height
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight); // Standard AppBar height
 }
 
 class _MyAppBarState extends State<MyAppBar> {
@@ -178,18 +179,22 @@ class _MyAppBarState extends State<MyAppBar> {
     // You might want to get theme colors dynamically here if needed for icons/text,
     // but default AppBar styling usually handles it well.
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final Color textColor = isDark
-        ? Colors.white
-        : Colors.black; // Example for text color if needed
+    final Color textColor =
+        isDark
+            ? Colors.white
+            : Colors.black; // Example for text color if needed
 
     return AppBar(
-      backgroundColor: Colors
-          .transparent, // Make AppBar transparent to show background if any
+      backgroundColor:
+          Colors
+              .transparent, // Make AppBar transparent to show background if any
       elevation: 0, // No shadow
       leadingWidth: 60, // Adjust if needed
       leading: IconButton(
-        icon: Icon(Icons.menu,
-            color: Theme.of(context).iconTheme.color), // Hamburger icon
+        icon: Icon(
+          Icons.menu,
+          color: Theme.of(context).iconTheme.color,
+        ), // Hamburger icon
         onPressed: () {
           // Implement sidebar/drawer opening logic here
           Scaffold.of(context).openDrawer(); // Example: opens a Drawer
@@ -216,16 +221,18 @@ class _MyAppBarState extends State<MyAppBar> {
           },
           isFormField: false, // It's not a form field
           labelTextStyle: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: textColor, // Use the dynamically set text color
-              ),
+            fontWeight: FontWeight.bold,
+            color: textColor, // Use the dynamically set text color
+          ),
         ),
       ),
       // centerTitle: true, // Center the title (the FEED dropdown)
       actions: [
         IconButton(
-          icon: Icon(Icons.search,
-              color: Theme.of(context).iconTheme.color), // Search icon
+          icon: Icon(
+            Icons.search,
+            color: Theme.of(context).iconTheme.color,
+          ), // Search icon
           onPressed: () {
             // Implement search functionality
             print('Search tapped');
@@ -241,14 +248,15 @@ class _MyAppBarState extends State<MyAppBar> {
             },
             child: CircleAvatar(
               radius: 22, // Adjust size
-              backgroundColor: Theme.of(context)
-                  .colorScheme
-                  .secondary
-                  .withOpacity(0.5), // Placeholder color
+              backgroundColor: Theme.of(
+                context,
+              ).colorScheme.secondary.withOpacity(0.5), // Placeholder color
               // You would typically load an actual image here:
               // backgroundImage: NetworkImage('your_profile_picture_url'),
-              child: const Icon(Icons.person,
-                  color: Colors.white), // Placeholder icon
+              child: const Icon(
+                Icons.person,
+                color: Colors.white,
+              ), // Placeholder icon
             ),
           ),
         ),

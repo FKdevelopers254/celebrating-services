@@ -231,21 +231,21 @@ try {
 Write-Host "`n=== Testing Rating & Review Service ===" -ForegroundColor Green
 try {
     # Create a review
+    $reviewHeaders = @{
+        "X-User-ID" = $userId
+        "Content-Type" = "application/json"
+    }
     $reviewBody = @{
-        postId = $postId  # Use a UUID postId
+        postId = $postId
         content = "This is a test review content"
     } | ConvertTo-Json
 
-    $reviewHeaders = $headers.Clone()
-    $reviewHeaders["X-User-ID"] = $userId  # Send userId as UUID in header
-
     Write-Host "Creating review..." -ForegroundColor Yellow
-    $reviewResponse = Invoke-RestMethod -Method Post -Uri "http://localhost:8088/api/reviews" `
-        -Headers $reviewHeaders -Body $reviewBody -ContentType 'application/json'
+    $reviewResponse = Invoke-RestMethod -Method Post -Uri "http://localhost:8093/api/reviews" -Headers $reviewHeaders -Body $reviewBody
     Write-Host "Review created successfully" -ForegroundColor Green
 
     # Get reviews for a post
-    $getReviewsResponse = Invoke-RestMethod -Method Get -Uri "http://localhost:8088/api/reviews/posts/$postId" `
+    $getReviewsResponse = Invoke-RestMethod -Method Get -Uri "http://localhost:8093/api/reviews/posts/$postId" `
         -Headers $headers
     Write-Host "Reviews fetched successfully" -ForegroundColor Green
 } catch {
@@ -261,12 +261,12 @@ try {
     } | ConvertTo-Json
 
     Write-Host "Sending message..." -ForegroundColor Yellow
-    $messageResponse = Invoke-RestMethod -Method Post -Uri "http://localhost:8086/api/messages" `
+    $messageResponse = Invoke-RestMethod -Method Post -Uri "http://localhost:8084/api/messages" `
         -Headers $headers -Body $messageBody
     Write-Host "Message sent successfully" -ForegroundColor Green
 
     # Get conversations
-    $conversationsResponse = Invoke-RestMethod -Method Get -Uri "http://localhost:8086/api/messages/conversations" `
+    $conversationsResponse = Invoke-RestMethod -Method Get -Uri "http://localhost:8084/api/messages/conversations" `
         -Headers $headers
     Write-Host "Conversations fetched successfully" -ForegroundColor Green
 } catch {
@@ -311,19 +311,84 @@ try {
     Write-Host "Moderation Service error: $_" -ForegroundColor Red
 }
 
+# === Testing Awards Service ===
 Write-Host "`n=== Testing Awards Service ===" -ForegroundColor Green
-try {
-    Write-Host "Fetching achievements..." -ForegroundColor Yellow
-    $achievementsResponse = Invoke-RestMethod -Method Get -Uri "http://localhost:8089/api/awards/achievements" `
-        -Headers $headers
-    Write-Host "Achievements fetched successfully" -ForegroundColor Green
 
-    # Get user awards
-    $userAwardsResponse = Invoke-RestMethod -Method Get -Uri "http://localhost:8089/api/awards/user/1" `
-        -Headers $headers
-    Write-Host "User awards fetched successfully" -ForegroundColor Green
+# Register and login as ADMIN for Awards Service
+$adminUsername = "admin_$(Get-Random)"
+$adminEmail = "$adminUsername@example.com"
+$adminPassword = "Admin123!"
+
+$adminRegistrationBody = @{
+    username = $adminUsername
+    email = $adminEmail
+    password = $adminPassword
+    fullName = "Admin User"
+    role = "ADMIN"
+} | ConvertTo-Json
+
+Write-Host "Registering ADMIN user for Awards Service..." -ForegroundColor Yellow
+$adminRegResponse = Invoke-ServiceRequest -Uri "http://localhost:8080/api/auth/register" -Method "Post" -Body $adminRegistrationBody -ServiceName "Awards Admin Registration"
+
+$adminToken = $null
+if ($adminRegResponse) {
+    $adminLoginBody = @{
+        username = $adminUsername
+        password = $adminPassword
+    } | ConvertTo-Json
+    Write-Host "Logging in as ADMIN user for Awards Service..." -ForegroundColor Yellow
+    $adminLoginResponse = Invoke-ServiceRequest -Uri "http://localhost:8080/api/auth/login" -Method "Post" -Body $adminLoginBody -ServiceName "Awards Admin Login"
+    if ($adminLoginResponse) {
+        $adminLoginContent = $adminLoginResponse.Content | ConvertFrom-Json
+        # Try both 'token' and 'accessToken' for compatibility
+        if ($adminLoginContent.token) {
+            $adminToken = $adminLoginContent.token
+        } elseif ($adminLoginContent.accessToken) {
+            $adminToken = $adminLoginContent.accessToken
+        } else {
+            Write-Host "Could not find JWT in login response. Full response:" -ForegroundColor Red
+            $adminLoginContent | ConvertTo-Json | Write-Host
+        }
+    }
+}
+
+# Use the ADMIN JWT for POST/PUT/DELETE requests to Awards Service
+if ($adminToken) {
+    $awardsHeaders = @{ "Authorization" = "Bearer $adminToken" }
+    Write-Host "Fetching achievements..." -ForegroundColor Yellow
+    try {
+        $awardsGetResponse = Invoke-RestMethod -Method Get -Uri "http://localhost:8089/api/v1/awards" -Headers $awardsHeaders
+        Write-Host "Awards fetched successfully!" -ForegroundColor Green
 } catch {
     Write-Host "Awards Service error: $_" -ForegroundColor Red
+    }
+    # Example POST (create award)
+    $awardBody = @{ 
+        name = "Test Award"; 
+        description = "Award for testing"; 
+        pointsValue = 10;
+        iconUrl = "https://example.com/icon.png"
+    } | ConvertTo-Json
+    try {
+        $awardsPostResponse = Invoke-RestMethod -Method Post -Uri "http://localhost:8089/api/v1/awards" -Headers $awardsHeaders -Body $awardBody -ContentType 'application/json'
+        Write-Host "Award created successfully!" -ForegroundColor Green
+    } catch {
+        Write-Host "Awards Service POST error: $_" -ForegroundColor Red
+        if ($_.Exception.Response) {
+            $statusCode = $_.Exception.Response.StatusCode.value__
+            $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+            $reader.BaseStream.Position = 0
+            $reader.DiscardBufferedData()
+            $responseBody = $reader.ReadToEnd()
+            Write-Host "Status code: $statusCode" -ForegroundColor Red
+            Write-Host "Raw response body:"
+            Write-Host $responseBody
+        } else {
+            Write-Host "No response body available." -ForegroundColor Red
+        }
+    }
+} else {
+    Write-Host "Could not obtain ADMIN JWT for Awards Service tests." -ForegroundColor Red
 }
 
 Write-Host "`n=== Testing Monitoring Service ===" -ForegroundColor Green

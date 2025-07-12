@@ -12,7 +12,7 @@ spring:
           default-label: ${CONFIG_REPO_BRANCH:main}
           clone-on-start: true
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: 197.254.53.252:9092
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
@@ -34,4 +34,5 @@ management:
 logging:
   level:
     org.springframework.cloud.config: DEBUG
-    org.springframework.boot: INFO 
+    org.springframework.boot: INFO
+

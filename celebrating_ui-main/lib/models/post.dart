@@ -33,13 +33,13 @@ class Post {
 
   factory Post.fromJson(Map<String, dynamic> json) => Post(
     id: json['id']?.toString() ?? '',
-    userId: json['userId']?.toString() ?? json['user_id']?.toString() ?? '',
+    userId: json['userId']?.toString() ?? '',
     title: json['title'] ?? '',
     content: json['content'] ?? '',
-    celebrationType: json['celebrationType'] ?? json['celebration_type'] ?? '',
+    celebrationType: json['celebrationType'] ?? '',
     mediaUrls:
-        (json['mediaUrls'] ?? json['media_urls'] ?? []) is List
-            ? List<String>.from(json['mediaUrls'] ?? json['media_urls'] ?? [])
+        (json['mediaUrls'] ?? []) is List
+            ? List<String>.from(json['mediaUrls'] ?? [])
             : [],
     createdAt:
         json['createdAt'] != null
@@ -54,8 +54,8 @@ class Post {
                 ? DateTime.tryParse(json['updated_at'])
                 : null),
     status: json['status']?.toString(),
-    likesCount: json['likesCount'] ?? json['likes_count'],
-    commentsCount: json['commentsCount'] ?? json['comments_count'],
+    likesCount: json['likesCount'] ?? '',
+    commentsCount: json['commentsCount'] ?? '',
   );
 }
 

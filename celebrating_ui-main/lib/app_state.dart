@@ -16,6 +16,9 @@ class AppState extends ChangeNotifier {
   String? get userId => _userId;
   String? get email => _email;
   String? get refreshToken => _refreshToken;
+  // Add this getter to provide the user's avatar URL for UI
+  String? get userAvatarUrl => _userAvatarUrl;
+  String? _userAvatarUrl;
 
   // Call this on app startup
   Future<void> init() async {
@@ -99,6 +102,18 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  set userAvatarUrl(String? url) {
+    _userAvatarUrl = url;
+    notifyListeners();
+    if (kIsWeb) {
+      try {
+        html.window.localStorage['userAvatarUrl'] = url ?? '';
+      } catch (e) {}
+    } else {
+      _persistUserAvatarUrlMobile(url);
+    }
+  }
+
   Future<void> _persistTokenMobile(String? token) async {
     final prefs = await SharedPreferences.getInstance();
     if (token != null) {
@@ -132,6 +147,15 @@ class AppState extends ChangeNotifier {
       await prefs.setString('refreshToken', token);
     } else {
       await prefs.remove('refreshToken');
+    }
+  }
+
+  Future<void> _persistUserAvatarUrlMobile(String? url) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (url != null) {
+      await prefs.setString('userAvatarUrl', url);
+    } else {
+      await prefs.remove('userAvatarUrl');
     }
   }
 

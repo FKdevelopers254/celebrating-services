@@ -5,6 +5,9 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:http/browser_client.dart' as http_browser;
+import 'package:http/io_client.dart' as http_io;
 
 import '../models/post.dart';
 import '../models/user.dart';
@@ -16,6 +19,7 @@ import '../widgets/profile_avatar.dart';
 import '../widgets/image_optional_text.dart';
 import '../app_state.dart';
 import 'package:provider/provider.dart';
+import '../services/post_service.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -52,49 +56,86 @@ class _ProfilePageState extends State<ProfilePage>
     final appState = Provider.of<AppState>(context, listen: false);
     final token = appState.jwtToken;
     final userId = appState.userId;
+    setState(() {
+      isLoading = true;
+    });
     if (token == null) {
-      // Handle missing token (e.g., redirect to login or show error)
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('You are not logged in. Please log in.')),
       );
       setState(() {
         isLoading = false;
+        user = null;
       });
       return;
     }
     User? fetchedUser;
+    String? errorMsg;
     int retryCount = 0;
     const maxRetries = 3;
     Duration retryDelay = const Duration(seconds: 1);
     while (retryCount < maxRetries) {
       try {
         if (userId != null && userId.isNotEmpty) {
-          // Use userId (UUID) if available
-          fetchedUser = await UserService.fetchUser(
-            userId,
-            token: token,
-            context: context,
-          );
+          // Try API Gateway first
+          try {
+            fetchedUser = await UserService.fetchUser(
+              userId,
+              token: token,
+              context: context,
+            );
+          } catch (e) {
+            // Always try direct user-service if gateway fails
+            final url = Uri.parse('http://localhost:8082/api/users/$userId');
+            final resp = await http.get(
+              url,
+              headers: {'Content-Type': 'application/json'},
+            );
+            if (resp.statusCode == 200) {
+              fetchedUser = User.fromJson(jsonDecode(resp.body));
+            } else {
+              errorMsg = 'User-service error: ${resp.statusCode} ${resp.body}';
+              throw Exception(errorMsg);
+            }
+          }
         } else {
           // Fallback: decode JWT and use sub (username)
           final payload = Jwt.parseJwt(token);
           final username = payload['sub'];
           if (username == null) throw Exception('No username in token');
-          fetchedUser = await UserService.fetchUserByUsername(
-            username,
-            token: token,
-            context: context,
-          );
+          try {
+            fetchedUser = await UserService.fetchUserByUsername(
+              username,
+              token: token,
+              context: context,
+            );
+          } catch (e) {
+            final url = Uri.parse(
+              'http://localhost:8082/api/users/username/$username',
+            );
+            final resp = await http.get(
+              url,
+              headers: {'Content-Type': 'application/json'},
+            );
+            if (resp.statusCode == 200) {
+              fetchedUser = User.fromJson(jsonDecode(resp.body));
+            } else {
+              errorMsg = 'User-service error: ${resp.statusCode} ${resp.body}';
+              throw Exception(errorMsg);
+            }
+          }
         }
         break; // Success, exit retry loop
       } catch (e) {
         debugPrint('Error fetching user profile: $e');
+        errorMsg = e.toString();
         if (e.toString().contains('404')) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('User not found (404).')),
           );
           setState(() {
             isLoading = false;
+            user = null;
           });
           return;
         } else if (e.toString().contains('403')) {
@@ -103,12 +144,12 @@ class _ProfilePageState extends State<ProfilePage>
           );
           setState(() {
             isLoading = false;
+            user = null;
           });
           return;
         } else if (e.toString().contains('Failed host lookup') ||
             e.toString().contains('SocketException') ||
             e.toString().contains('Connection refused')) {
-          // Service downtime/network error, retry with exponential backoff
           retryCount++;
           if (retryCount >= maxRetries) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -118,29 +159,47 @@ class _ProfilePageState extends State<ProfilePage>
             );
             setState(() {
               isLoading = false;
+              user = null;
             });
             return;
           }
           await Future.delayed(retryDelay);
           retryDelay *= 2;
         } else {
-          // Other errors
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(SnackBar(content: Text('Error: $e')));
           setState(() {
             isLoading = false;
+            user = null;
           });
           return;
         }
       }
     }
     if (fetchedUser != null) {
+      List<Post> userPosts = [];
+      try {
+        if (fetchedUser.id != null && fetchedUser.id!.isNotEmpty) {
+          userPosts = await PostService.getUserPosts(fetchedUser.id!);
+        }
+      } catch (e) {
+        debugPrint('Error fetching user posts: $e');
+      }
       setState(() {
         user = fetchedUser;
-        posts = fetchedUser?.postsList ?? [];
+        posts = userPosts;
         isLoading = false;
       });
+    } else if (errorMsg != null) {
+      setState(() {
+        isLoading = false;
+        user = null;
+      });
+      // Show error in UI
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(errorMsg!)));
     }
   }
 
@@ -253,7 +312,11 @@ class _ProfilePageState extends State<ProfilePage>
 
   Widget _buildProfileHeader(Color defaultTextColor, Color secondaryTextColor) {
     if (user == null) {
-      return const Center(child: Text('User profile could not be loaded.'));
+      return Center(
+        child: Text(
+          'User profile could not be loaded. Please check your connection or backend.',
+        ),
+      );
     }
     final isCelebrity = user is CelebrityUser;
     return Column(
@@ -1491,6 +1554,7 @@ class _ProfilePageState extends State<ProfilePage>
     final token = appState.jwtToken;
     if (token == null || user == null) return;
     // Upload image to /api/posts/upload-media (reuse post image upload)
+    final client = kIsWeb ? http_browser.BrowserClient() : http_io.IOClient();
     var uploadUri = Uri.parse('http://localhost:8080/api/posts/upload-media');
     var uploadRequest =
         http.MultipartRequest('POST', uploadUri)
@@ -1502,7 +1566,16 @@ class _ProfilePageState extends State<ProfilePage>
               filename: 'avatar.jpg',
             ),
           );
-    var uploadResponse = await uploadRequest.send();
+    var uploadResponse = await client.send(uploadRequest);
+    if (uploadResponse.statusCode == 401 || uploadResponse.statusCode == 403) {
+      // Fallback to post-service directly
+      uploadUri = Uri.parse('http://localhost:8083/api/posts/upload-media');
+      uploadRequest = http.MultipartRequest('POST', uploadUri)
+        ..files.add(
+          http.MultipartFile.fromBytes('media', bytes, filename: 'avatar.jpg'),
+        );
+      uploadResponse = await client.send(uploadRequest);
+    }
     if (uploadResponse.statusCode == 200) {
       final uploadRespStr = await uploadResponse.stream.bytesToString();
       final uploadRespJson = jsonDecode(uploadRespStr);
@@ -1510,8 +1583,8 @@ class _ProfilePageState extends State<ProfilePage>
       if (avatarUrl != null) {
         // Update user profile with new avatar URL
         final userId = user!.id?.toString() ?? '';
-        final url = Uri.parse('http://localhost:8080/api/users/$userId');
-        final resp = await http.put(
+        var url = Uri.parse('http://localhost:8080/api/users/$userId');
+        var resp = await http.put(
           url,
           headers: {
             'Content-Type': 'application/json',
@@ -1519,6 +1592,15 @@ class _ProfilePageState extends State<ProfilePage>
           },
           body: jsonEncode({'profileImageUrl': avatarUrl}),
         );
+        if (resp.statusCode == 401 || resp.statusCode == 403) {
+          // Fallback to user-service directly
+          url = Uri.parse('http://localhost:8082/api/users/$userId');
+          resp = await http.put(
+            url,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'profileImageUrl': avatarUrl}),
+          );
+        }
         if (resp.statusCode == 200) {
           fetchProfileUser();
           ScaffoldMessenger.of(

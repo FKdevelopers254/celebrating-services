@@ -6,6 +6,10 @@ import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import '../app_state.dart';
+import 'package:http_parser/http_parser.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:http/browser_client.dart' as http_browser;
+import 'package:http/io_client.dart' as http_io;
 
 class PostPage extends StatefulWidget {
   const PostPage({super.key});
@@ -90,27 +94,52 @@ class _PostPageState extends State<PostPage> {
     try {
       // 1. Upload all images and collect URLs
       List<String> mediaUrls = [];
+      var uploadUriGateway = Uri.parse(
+        'http://localhost:8080/api/posts/upload-media',
+      );
+      var uploadUriDirect = Uri.parse(
+        'http://localhost:8083/api/posts/upload-media',
+      );
       for (int i = 0; i < images.length; i++) {
-        var uploadUri = Uri.parse(
-          'http://localhost:8080/api/posts/upload-media',
-        );
+        http.StreamedResponse uploadResponse;
+        // Use BrowserClient for web, IOClient otherwise
+        final client =
+            kIsWeb ? http_browser.BrowserClient() : http_io.IOClient();
+        // Try API Gateway first
         var uploadRequest =
-            http.MultipartRequest('POST', uploadUri)
+            http.MultipartRequest('POST', uploadUriGateway)
               ..headers['Authorization'] = 'Bearer $token'
               ..files.add(
                 http.MultipartFile.fromBytes(
                   'media',
                   images[i],
                   filename: 'image_$i.jpg',
+                  contentType: MediaType('image', 'jpeg'),
                 ),
               );
-        var uploadResponse = await uploadRequest.send();
+        uploadResponse = await client.send(uploadRequest);
+        // If not successful, try direct Post Service
         if (uploadResponse.statusCode != 200) {
+          var uploadRequestDirect =
+              http.MultipartRequest('POST', uploadUriDirect)
+                ..headers['Authorization'] = 'Bearer $token'
+                ..files.add(
+                  http.MultipartFile.fromBytes(
+                    'media',
+                    images[i],
+                    filename: 'image_$i.jpg',
+                    contentType: MediaType('image', 'jpeg'),
+                  ),
+                );
+          uploadResponse = await client.send(uploadRequestDirect);
+        }
+        if (uploadResponse.statusCode != 200) {
+          final errorBody = await uploadResponse.stream.bytesToString();
           Navigator.of(context).pop();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'Failed to upload image ${i + 1}. Status: ${uploadResponse.statusCode}',
+                'Failed to upload image ${i + 1}. Status: ${uploadResponse.statusCode}\n$errorBody',
               ),
             ),
           );
@@ -132,9 +161,12 @@ class _PostPageState extends State<PostPage> {
       }
 
       // 2. Create the post with the image URLs
-      var postUri = Uri.parse('http://localhost:8080/api/posts');
-      var postResponse = await http.post(
-        postUri,
+      var postUriGateway = Uri.parse('http://localhost:8080/api/posts');
+      var postUriDirect = Uri.parse('http://localhost:8083/api/posts');
+      http.Response postResponse;
+      // Try API Gateway first
+      postResponse = await http.post(
+        postUriGateway,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -147,6 +179,26 @@ class _PostPageState extends State<PostPage> {
           'userId': userId,
         }),
       );
+      // If forbidden or not successful, try direct Post Service
+      if (postResponse.statusCode == 403 ||
+          postResponse.statusCode == 404 ||
+          postResponse.statusCode < 200 ||
+          postResponse.statusCode > 299) {
+        postResponse = await http.post(
+          postUriDirect,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: jsonEncode({
+            'title': title,
+            'content': description,
+            'celebrationType': _selectedCelebrationType,
+            'mediaUrls': mediaUrls,
+            'userId': userId,
+          }),
+        );
+      }
       Navigator.of(context).pop(); // Remove loading indicator
       if (postResponse.statusCode == 200 || postResponse.statusCode == 201) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -163,7 +215,7 @@ class _PostPageState extends State<PostPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Failed to create post. Status: ${postResponse.statusCode}',
+              'Failed to create post. Status:  {postResponse.statusCode}',
             ),
           ),
         );

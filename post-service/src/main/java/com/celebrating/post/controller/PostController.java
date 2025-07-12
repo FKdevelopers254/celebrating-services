@@ -15,14 +15,19 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.UUID;
+import java.util.Map;
 
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.codec.multipart.FilePart;
 
 @RestController
 @RequestMapping("/api/posts")
 @RequiredArgsConstructor
 public class PostController {
     private final PostService postService;
+    private static final Logger logger = LoggerFactory.getLogger(PostController.class);
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -97,17 +102,19 @@ public class PostController {
     }
 
     @PostMapping("/upload-media")
-    public ResponseEntity<?> uploadMedia(@RequestParam("media") MultipartFile file) {
-        try {
+    public Mono<ResponseEntity<Map<String, String>>> uploadMedia(@RequestPart("media") Mono<FilePart> filePartMono) {
+        return filePartMono.flatMap(filePart -> {
             String uploadDir = System.getProperty("java.io.tmpdir") + "/post-uploads/";
+            try {
             Files.createDirectories(Paths.get(uploadDir));
-            String filename = UUID.randomUUID() + "_" + file.getOriginalFilename();
+                String filename = UUID.randomUUID() + "_" + filePart.filename();
             Path filePath = Paths.get(uploadDir, filename);
-            Files.write(filePath, file.getBytes());
-            String fileUrl = "/uploads/" + filename;
-            return ResponseEntity.ok().body(java.util.Collections.singletonMap("mediaUrl", fileUrl));
+                return filePart.transferTo(filePath)
+                    .thenReturn(ResponseEntity.ok().body(Map.of("mediaUrl", "/uploads/" + filename)));
         } catch (Exception e) {
-            return ResponseEntity.status(500).body(java.util.Collections.singletonMap("error", "Failed to upload file: " + e.getMessage()));
+                logger.error("Failed to upload file", e);
+                return Mono.just(ResponseEntity.status(500).body(Map.of("error", "Failed to upload file: " + e.getMessage())));
         }
+        }).switchIfEmpty(Mono.just(ResponseEntity.badRequest().body(Map.of("error", "No file uploaded or file is empty"))));
     }
 }

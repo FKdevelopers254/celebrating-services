@@ -5,7 +5,7 @@ spring:
   application:
     name: search-service
   elasticsearch:
-    uris: http://localhost:9200
+    uris: http://197.254.53.252:9200
 
 management:
   endpoints:

@@ -4,7 +4,7 @@ spring:
   config:
     import: "configserver:"
   datasource:
-    url: jdbc:postgresql://localhost:5432/celebratedb?sslmode=disable
+    url: jdbc:postgresql://197.254.53.252:5432/celebratedb?sslmode=disable
     username: postgres
     password: postgres
     driver-class-name: org.postgresql.Driver
@@ -31,12 +31,12 @@ server:
 eureka:
   client:
     serviceUrl:
-      defaultZone: http://localhost:8761/eureka/
+      defaultZone: http://197.254.53.252:8761/eureka/
     fetch-registry: true
     register-with-eureka: true
   instance:
     preferIpAddress: false
-    hostname: localhost
+    hostname: 197.254.53.252
     lease-renewal-interval-in-seconds: 30
     lease-expiration-duration-in-seconds: 90
 
@@ -54,7 +54,7 @@ logging:
 
 cors:
   allowed-origins: 
-    - "http://localhost:*"
+    - "http://197.254.53.252:*"
     - "http://127.0.0.1:*"
   allowed-methods: GET,POST,PUT,DELETE,OPTIONS,HEAD
   allowed-headers: "*"

@@ -19,7 +19,8 @@ class StreamPage extends StatefulWidget {
 class _StreamPageState extends State<StreamPage>
     with SingleTickerProviderStateMixin {
   late TextEditingController _searchController;
-  late final List<StreamCategory> _streamCategories;
+
+  List<StreamCategory>? _streamCategories;
   late TabController _tabController;
   List<LiveStream> _liveStreams = [];
   LiveStream? _expandedStream;
@@ -61,6 +62,7 @@ class _StreamPageState extends State<StreamPage>
       return;
     }
     _streamCategories = await StreamService.getCategories(token: token);
+    setState(() {});
     await _loadLiveStreams(token);
   }
 
@@ -97,8 +99,10 @@ class _StreamPageState extends State<StreamPage>
     if (_expandedStreamVisible) return;
     final itemHeight = 240.0; // Approximate height of each LiveStreamCard
     final offset = _scrollController.offset;
-    final topIndex =
-        (offset / itemHeight).round().clamp(0, _liveStreams.length - 1);
+    final topIndex = (offset / itemHeight).round().clamp(
+      0,
+      _liveStreams.length - 1,
+    );
     final topStreamId = _liveStreams[topIndex].id;
     if (_activeStreamId != topStreamId) {
       setState(() {
@@ -133,10 +137,12 @@ class _StreamPageState extends State<StreamPage>
                   showSearchButton: true,
                   showFilterButton: true,
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 16.0, vertical: 8.0),
+                    horizontal: 16.0,
+                    vertical: 8.0,
+                  ),
                 ),
                 _buildTabBar(isDark),
-                _buildTabs()
+                _buildTabs(),
               ],
             ),
             if (_expandedStream != null)
@@ -164,8 +170,10 @@ class _StreamPageState extends State<StreamPage>
       unselectedLabelColor:
           isDark ? Colors.grey.shade500 : Colors.grey.shade600,
       labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-      unselectedLabelStyle:
-          const TextStyle(fontWeight: FontWeight.normal, fontSize: 16),
+      unselectedLabelStyle: const TextStyle(
+        fontWeight: FontWeight.normal,
+        fontSize: 16,
+      ),
       indicator: UnderlineTabIndicator(
         borderSide: BorderSide(
           width: 3.0,
@@ -193,21 +201,22 @@ class _StreamPageState extends State<StreamPage>
   }
 
   Widget _buildCategoriesTab() {
-    return Expanded(
-      child: GridView.builder(
-        padding: const EdgeInsets.all(8.0),
-        itemCount: _streamCategories.length,
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
-          crossAxisSpacing: 8.0,
-          mainAxisSpacing: 8.0,
-          childAspectRatio: 0.6,
-        ),
-        itemBuilder: (context, index) {
-          final category = _streamCategories[index];
-          return StreamCategoryCard(category: category);
-        },
+    if (_streamCategories == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    return GridView.builder(
+      padding: const EdgeInsets.all(8.0),
+      itemCount: _streamCategories!.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 1.2,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
       ),
+      itemBuilder: (context, index) {
+        final category = _streamCategories![index];
+        return StreamCategoryCard(category: category);
+      },
     );
   }
 

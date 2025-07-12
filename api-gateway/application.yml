@@ -45,12 +45,12 @@ spring:
 eureka:
   client:
     serviceUrl:
-      defaultZone: http://localhost:8761/eureka/
+      defaultZone: http://197.254.53.252:8761/eureka/
     fetch-registry: true
     register-with-eureka: true
   instance:
     prefer-ip-address: true
-    hostname: localhost
+    hostname: 197.254.53.252
     lease-renewal-interval-in-seconds: 30
     lease-expiration-duration-in-seconds: 90
 
