@@ -18,6 +18,8 @@ import java.util.Map;
 @RestController
 @CrossOrigin(origins = {
     "http://localhost:3000",
+    "http://192.254.53.252:8080",
+    "http://192.254.53.252",
     "http://localhost:8080",
     "http://127.0.0.1:3000",
     "http://localhost",
