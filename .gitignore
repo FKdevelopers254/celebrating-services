@@ -24,3 +24,5 @@ docker/.env
 
 # Misc
 *.DS_Store
+
+*.hprof
