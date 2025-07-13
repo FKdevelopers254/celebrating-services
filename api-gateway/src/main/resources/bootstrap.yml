@@ -3,5 +3,5 @@ spring:
     name: api-gateway
   cloud:
     config:
-      uri: http://197.254.53.252:8888
+      uri: http://41.89.64.12:8888
       fail-fast: true 
