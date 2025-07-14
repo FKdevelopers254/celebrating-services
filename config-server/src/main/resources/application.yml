@@ -8,11 +8,11 @@ spring:
     config:
       server:
         git:
-          uri: ${CONFIG_REPO_URI:https://github.com/yourusername/config-repo}
+          uri: ${CONFIG_REPO_URI:https://github.com/FKdevelopers254/celebrating-services/tree/main/config-repo}
           default-label: ${CONFIG_REPO_BRANCH:main}
           clone-on-start: true
   kafka:
-    bootstrap-servers: 41.89.64.12:9092
+    bootstrap-servers: localhost:9092
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
