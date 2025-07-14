@@ -71,6 +71,7 @@ spring:
 
 server:
   port: 8080
+  address: 0.0.0.0
 
 jwt:
   secret: ${JWT_SECRET:8y/B?E(H+MbQeThWmZq4t6w9z$C&F)J@NcRfUjXn2r5u8x/A%D*G-KaPdSgVkYp3}
@@ -78,12 +79,12 @@ jwt:
 eureka:
   client:
     serviceUrl:
-      defaultZone: http://41.89.64.12:8761/eureka/
+      defaultZone: http://localhost:8761/eureka/
     fetch-registry: true
     register-with-eureka: true
   instance:
     prefer-ip-address: true
-    hostname: 41.89.64.12
+    hostname: localhost
     lease-renewal-interval-in-seconds: 30
     lease-expiration-duration-in-seconds: 90
 

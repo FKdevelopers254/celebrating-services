@@ -1,11 +1,12 @@
 server:
-  port: 8084
+  port: 8095
+  host: 0.0.0.0
 
 spring:
   application:
     name: search-service
   elasticsearch:
-    uris: http://197.254.53.252:9200
+    uris: http://localhost:9200
 
 management:
   endpoints:
