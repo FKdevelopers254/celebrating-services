@@ -2,12 +2,12 @@ spring:
   application:
     name: user-service
   config:
-    import: "optional:configserver:http://41.89.64.12:8888"
+    import: "optional:configserver:http://localhost:8888"
   cloud:
     config:
       fail-fast: true
   datasource:
-    url: jdbc:postgresql://41.89.64.12/celebratedb
+    url: jdbc:postgresql://localhost:5432/celebratedb
     username: celebrate
     password: celebrate123
     driver-class-name: org.postgresql.Driver
@@ -33,7 +33,7 @@ spring:
     enabled: true
     change-log: classpath:db/changelog/db.changelog-master.xml
   kafka:
-    bootstrap-servers: 41.89.64.12:8090
+    bootstrap-servers: localhost:9090
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
@@ -42,22 +42,27 @@ spring:
 
 server:
   port: 8082
+  address: 0.0.0.0
   servlet:
     context-path: /
 
-security:
-  jwt:
-    public-key: classpath:public_key.pem
+
+
+jwt:
+  secret: 8y/B?E(H+MbQeThWmZq4t6w9z$C&F)J@NcRfUjXn2r5u8x/A%D*G-KaPdSgVkYp3
+  expiration: 86400000 # 24 hours in milliseconds
+  refresh-token:
+    expiration: 604800000 # 7 days in milliseconds 
 
 eureka:
   client:
     service-url:
-      defaultZone: http://41.89.64.12:8761/eureka/
+      defaultZone: http://localhost:8761/eureka/
     fetch-registry: true
     register-with-eureka: true
   instance:
     prefer-ip-address: true
-    hostname: 41.89.64.12
+    hostname: localhost
     lease-renewal-interval-in-seconds: 30
     lease-expiration-duration-in-seconds: 90
     instance-id: ${spring.application.name}:${random.uuid}
