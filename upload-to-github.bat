@@ -31,6 +31,7 @@ echo.
 echo Setting branch to main...
 git branch -M main
 
+
 echo.
 echo Pushing to GitHub...
 git push -u origin main

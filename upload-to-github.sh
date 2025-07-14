@@ -1,4 +1,4 @@
-#!/bin/bash
+.\#!/bin/bash
 
 # Set your repo URL here
 REPO_URL="https://github.com/FKdevelopers254/celebrating-services.git"
@@ -26,6 +26,9 @@ fi
 # Set main branch (if not already)
 echo "Setting branch to main..."
 git branch -M main
+
+echo "Pulling latest changes first..."
+git pull -u origin main
 
 # Push to GitHub
 echo "Pushing to GitHub..."

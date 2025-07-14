@@ -230,26 +230,92 @@ try {
 
 Write-Host "`n=== Testing Rating & Review Service ===" -ForegroundColor Green
 try {
-    # Create a review
+    # First, let's get a post ID to use for testing
+    Write-Host "Getting a post ID for testing..." -ForegroundColor Yellow
+    $postsResponse = Invoke-RestMethod -Method Get -Uri "http://localhost:8083/api/posts" -Headers $headers
+    if ($postsResponse -and $postsResponse.Count -gt 0) {
+        $testPostId = $postsResponse[0].id
+        Write-Host "Using post ID: $testPostId" -ForegroundColor Cyan
+    } else {
+        # If no posts exist, create one first
+        Write-Host "No posts found, creating a test post..." -ForegroundColor Yellow
+        $createPostBody = @{
+            title = "Test Post for Rating Review $(Get-Random)"
+            content = "This is a test post for rating and review testing."
+            celebrationType = "OTHER"
+            userId = $userId
+            mediaUrls = @()
+        } | ConvertTo-Json
+
+        $postResponse = Invoke-RestMethod -Method Post -Uri "http://localhost:8083/api/posts" `
+            -Headers $headers -Body $createPostBody -ContentType 'application/json'
+        $testPostId = $postResponse.id
+        Write-Host "Created test post with ID: $testPostId" -ForegroundColor Cyan
+    }
+
+    # Test creating a review
     $reviewHeaders = @{
         "X-User-ID" = $userId
         "Content-Type" = "application/json"
     }
     $reviewBody = @{
-        postId = $postId
-        content = "This is a test review content"
+        postId = $testPostId
+        content = "This is a test review content with more than 10 characters to meet the validation requirement."
     } | ConvertTo-Json
 
     Write-Host "Creating review..." -ForegroundColor Yellow
     $reviewResponse = Invoke-RestMethod -Method Post -Uri "http://localhost:8093/api/reviews" -Headers $reviewHeaders -Body $reviewBody
-    Write-Host "Review created successfully" -ForegroundColor Green
+    Write-Host "Review created successfully!" -ForegroundColor Green
+    Write-Host "Review ID: $($reviewResponse.id)" -ForegroundColor Cyan
 
-    # Get reviews for a post
-    $getReviewsResponse = Invoke-RestMethod -Method Get -Uri "http://localhost:8093/api/reviews/posts/$postId" `
-        -Headers $headers
-    Write-Host "Reviews fetched successfully" -ForegroundColor Green
+    # Test getting reviews for the post
+    Write-Host "Getting reviews for post..." -ForegroundColor Yellow
+    $getReviewsResponse = Invoke-RestMethod -Method Get -Uri "http://localhost:8093/api/reviews/posts/$testPostId" -Headers $headers
+    Write-Host "Reviews fetched successfully!" -ForegroundColor Green
+    Write-Host "Found $($getReviewsResponse.Count) reviews" -ForegroundColor Cyan
+
+    # Test getting review count
+    Write-Host "Getting review count..." -ForegroundColor Yellow
+    $reviewCountResponse = Invoke-RestMethod -Method Get -Uri "http://localhost:8093/api/reviews/posts/$testPostId/count" -Headers $headers
+    Write-Host "Review count: $reviewCountResponse" -ForegroundColor Green
+
+    # Test creating a rating
+    $ratingBody = @{
+        postId = [long]$testPostId
+        ratingValue = 5
+    } | ConvertTo-Json
+
+    Write-Host "Creating rating..." -ForegroundColor Yellow
+    $ratingResponse = Invoke-RestMethod -Method Post -Uri "http://localhost:8093/api/ratings" -Headers $reviewHeaders -Body $ratingBody
+    Write-Host "Rating created successfully!" -ForegroundColor Green
+    Write-Host "Rating ID: $($ratingResponse.id)" -ForegroundColor Cyan
+
+    # Test getting average rating
+    Write-Host "Getting average rating..." -ForegroundColor Yellow
+    $avgRatingResponse = Invoke-RestMethod -Method Get -Uri "http://localhost:8093/api/ratings/posts/$testPostId/average" -Headers $headers
+    Write-Host "Average rating: $avgRatingResponse" -ForegroundColor Green
+
+    # Test getting rating count
+    Write-Host "Getting rating count..." -ForegroundColor Yellow
+    $ratingCountResponse = Invoke-RestMethod -Method Get -Uri "http://localhost:8093/api/ratings/posts/$testPostId/count" -Headers $headers
+    Write-Host "Rating count: $ratingCountResponse" -ForegroundColor Green
+
 } catch {
     Write-Host "Rating & Review Service error: $_" -ForegroundColor Red
+    if ($_.Exception.Response) {
+        $statusCode = $_.Exception.Response.StatusCode.value__
+        $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+        $reader.BaseStream.Position = 0
+        $reader.DiscardBufferedData()
+        $responseBody = $reader.ReadToEnd()
+        Write-Host "Status code: $statusCode" -ForegroundColor Red
+        Write-Host "Response body: $responseBody" -ForegroundColor Red
+        
+        if ($statusCode -eq 404) {
+            Write-Host "`nNote: 404 error indicates the Rating & Review Service might not be running on port 8093." -ForegroundColor Yellow
+            Write-Host "Please ensure the service is started and accessible." -ForegroundColor Yellow
+        }
+    }
 }
 
 Write-Host "`n=== Testing Messaging Service ===" -ForegroundColor Green
@@ -314,6 +380,28 @@ try {
 # === Testing Awards Service ===
 Write-Host "`n=== Testing Awards Service ===" -ForegroundColor Green
 
+# First, test the GET endpoint which should work without authentication
+Write-Host "Testing GET awards endpoint (should work without auth)..." -ForegroundColor Yellow
+try {
+    $awardsGetResponse = Invoke-RestMethod -Method Get -Uri "http://localhost:8089/api/v1/awards"
+    Write-Host "Awards fetched successfully!" -ForegroundColor Green
+    Write-Host "Found $($awardsGetResponse.Count) awards" -ForegroundColor Cyan
+} catch {
+    Write-Host "Awards Service GET error: $_" -ForegroundColor Red
+    if ($_.Exception.Response) {
+        $statusCode = $_.Exception.Response.StatusCode.value__
+        $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+        $reader.BaseStream.Position = 0
+        $reader.DiscardBufferedData()
+        $responseBody = $reader.ReadToEnd()
+        Write-Host "Status code: $statusCode" -ForegroundColor Red
+        Write-Host "Response body: $responseBody" -ForegroundColor Red
+    }
+}
+
+# Test POST endpoint with admin user (this may fail due to JWT role issues)
+Write-Host "`nTesting POST awards endpoint (requires ADMIN role)..." -ForegroundColor Yellow
+
 # Register and login as ADMIN for Awards Service
 $adminUsername = "admin_$(Get-Random)"
 $adminEmail = "$adminUsername@example.com"
@@ -352,24 +440,20 @@ if ($adminRegResponse) {
     }
 }
 
-# Use the ADMIN JWT for POST/PUT/DELETE requests to Awards Service
+# Use the ADMIN JWT for POST request to Awards Service
 if ($adminToken) {
     $awardsHeaders = @{ "Authorization" = "Bearer $adminToken" }
-    Write-Host "Fetching achievements..." -ForegroundColor Yellow
-    try {
-        $awardsGetResponse = Invoke-RestMethod -Method Get -Uri "http://localhost:8089/api/v1/awards" -Headers $awardsHeaders
-        Write-Host "Awards fetched successfully!" -ForegroundColor Green
-} catch {
-    Write-Host "Awards Service error: $_" -ForegroundColor Red
-    }
+    
     # Example POST (create award)
     $awardBody = @{ 
-        name = "Test Award"; 
+        name = "Test Award $(Get-Random)"; 
         description = "Award for testing"; 
         pointsValue = 10;
         iconUrl = "https://example.com/icon.png"
     } | ConvertTo-Json
+    
     try {
+        Write-Host "Attempting to create award with admin token..." -ForegroundColor Yellow
         $awardsPostResponse = Invoke-RestMethod -Method Post -Uri "http://localhost:8089/api/v1/awards" -Headers $awardsHeaders -Body $awardBody -ContentType 'application/json'
         Write-Host "Award created successfully!" -ForegroundColor Green
     } catch {
@@ -381,14 +465,21 @@ if ($adminToken) {
             $reader.DiscardBufferedData()
             $responseBody = $reader.ReadToEnd()
             Write-Host "Status code: $statusCode" -ForegroundColor Red
-            Write-Host "Raw response body:"
-            Write-Host $responseBody
+            Write-Host "Raw response body:" -ForegroundColor Red
+            Write-Host $responseBody -ForegroundColor Red
+            
+            if ($statusCode -eq 403) {
+                Write-Host "`nNote: 403 Forbidden error indicates JWT token doesn't contain proper role information." -ForegroundColor Yellow
+                Write-Host "The auth service JWT generation needs to include user roles for proper authorization." -ForegroundColor Yellow
+                Write-Host "This is a known issue - the JWT token only contains username, not role information." -ForegroundColor Yellow
+            }
         } else {
             Write-Host "No response body available." -ForegroundColor Red
         }
     }
 } else {
     Write-Host "Could not obtain ADMIN JWT for Awards Service tests." -ForegroundColor Red
+    Write-Host "Skipping POST test due to authentication failure." -ForegroundColor Yellow
 }
 
 Write-Host "`n=== Testing Monitoring Service ===" -ForegroundColor Green

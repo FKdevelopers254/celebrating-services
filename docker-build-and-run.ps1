@@ -54,7 +54,7 @@ function Build-ServiceJar {
             return $false
         }
     } catch {
-        Write-Status "Error building $ServiceName: $($_.Exception.Message)" "ERROR"
+        Write-Status ("Error building {0}: {1}" -f $ServiceName, $_.Exception.Message) "ERROR"
         Pop-Location
         return $false
     }
@@ -81,7 +81,7 @@ function Create-ServiceDockerfile {
         Write-Status "Created Dockerfile for $ServiceName" "SUCCESS"
         return $true
     } catch {
-        Write-Status "Failed to create Dockerfile for $ServiceName" "ERROR"
+        Write-Status ("Failed to create Dockerfile for {0}: {1}" -f $ServiceName, $_.Exception.Message) "ERROR"
         return $false
     }
 }
@@ -166,7 +166,7 @@ if (-not $SkipDocker) {
             exit 1
         }
     } catch {
-        Write-Status "Error building Docker images: $($_.Exception.Message)" "ERROR"
+        Write-Status ("Error building Docker images: {0}" -f $_.Exception.Message) "ERROR"
         exit 1
     }
 }
@@ -190,7 +190,7 @@ try {
         exit 1
     }
 } catch {
-    Write-Status "Error starting services: $($_.Exception.Message)" "ERROR"
+    Write-Status ("Error starting services: {0}" -f $_.Exception.Message) "ERROR"
     exit 1
 }
 
