@@ -1,17 +1,24 @@
+server:
+  port: 8081
+
 spring:
   application:
     name: auth-service
   config:
-    import: "configserver:"
+    import: "optional:configserver:http://localhost:8888"
   datasource:
-    url: jdbc:postgresql://197.254.53.252:5432/celebratedb?sslmode=disable
-    username: postgres
-    password: postgres
+    url: jdbc:postgresql://localhost:5432/celebratedb
+    username: celebrate
+    password: celebrate123
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 10
       minimum-idle: 5
       idle-timeout: 300000
+      connection-timeout: 20000
+      max-lifetime: 1200000
+      auto-commit: true
+      pool-name: AuthHikariPool
   jpa:
     hibernate:
       ddl-auto: update
@@ -20,46 +27,36 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
-        jdbc:
-          time_zone: UTC
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: false
+  sql:
+    init:
+      mode: never
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/db.changelog-master.xml
 
-server:
-  port: 8081
-  servlet:
-    context-path: /
+jwt:
+  secret: 8y/B?E(H+MbQeThWmZq4t6w9z$C&F)J@NcRfUjXn2r5u8x/A%D*G-KaPdSgVkYp3
+  expiration: 86400000 # 24 hours in milliseconds
+  refresh-token:
+    expiration: 604800000 # 7 days in milliseconds
 
 eureka:
   client:
     serviceUrl:
-      defaultZone: http://197.254.53.252:8761/eureka/
+      defaultZone: http://localhost:8761/eureka/
     fetch-registry: true
     register-with-eureka: true
   instance:
-    preferIpAddress: false
-    hostname: 197.254.53.252
+    prefer-ip-address: true
+    hostname: localhost
     lease-renewal-interval-in-seconds: 30
     lease-expiration-duration-in-seconds: 90
-
-jwt:
-  secret: your-secret-key-must-be-at-least-32-characters-long-and-very-secure-123
-  expiration: 86400000 # 24 hours
 
 logging:
   level:
     org.springframework.security: DEBUG
     org.springframework.web: DEBUG
     org.hibernate.SQL: DEBUG
-    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
-    com.celebrating.auth: DEBUG
-
-cors:
-  allowed-origins: 
-    - "http://197.254.53.252:*"
-    - "http://127.0.0.1:*"
-  allowed-methods: GET,POST,PUT,DELETE,OPTIONS,HEAD
-  allowed-headers: "*"
-  exposed-headers: 
-    - "Authorization"
-    - "Content-Type"
-  allow-credentials: true
-  max-age: 3600
+    com.celebrating.auth: DEBUG 

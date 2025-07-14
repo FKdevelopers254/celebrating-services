@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import jakarta.servlet.http.HttpServletRequest;
 
 @Service
 public class AuthService {
@@ -32,6 +33,9 @@ public class AuthService {
 
     @Autowired
     private LoginAttemptService loginAttemptService;
+
+    @Autowired
+    private HttpServletRequest request;
 
     @Transactional
     public Map<String, Object> login(String identifier, String password) {
@@ -54,7 +58,7 @@ public class AuthService {
                 user.setLastLogin(LocalDateTime.now());
                 user = userRepository.save(user);
 
-                String accessToken = jwtService.generateToken(user.getUsername());
+                String accessToken = jwtService.generateToken(user.getUsername(), user.getRole());
                 String refreshToken = jwtService.generateRefreshToken(user.getUsername());
 
                 Map<String, Object> response = new HashMap<>();
@@ -87,7 +91,7 @@ public class AuthService {
         String username = jwtService.extractUsername(refreshToken);
         User user = getUserByUsername(username);
 
-        String newAccessToken = jwtService.generateToken(username);
+        String newAccessToken = jwtService.generateToken(username, user.getRole());
         String newRefreshToken = jwtService.generateRefreshToken(username);
 
         Map<String, Object> response = new HashMap<>();
@@ -128,8 +132,10 @@ public class AuthService {
     }
 
     private String getClientIP() {
-        // In a real application, you would get this from the HttpServletRequest
-        // For now, we'll use a placeholder
-        return "127.0.0.1";
+        String xfHeader = request.getHeader("X-Forwarded-For");
+        if (xfHeader == null) {
+            return request.getRemoteAddr();
+        }
+        return xfHeader.split(",")[0];
     }
 } 
